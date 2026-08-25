@@ -1,0 +1,12 @@
+{
+  "brand": "BMW",
+  "model": "X5",
+  "year": 2025,
+  "country": "UAE",
+  "price_aed": 420000,
+  "shipping_cost": 5000,
+  "customs_cost": 15000,
+  "description": "BMW X5 New POST Test",
+  "dealership_name": "Dubai Luxury Cars",
+  "city": "Dubai"
+}
