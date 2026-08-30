@@ -32,7 +32,7 @@ function CarDetails({ car, onBack }) {
               photoCategories: "دسته‌بندی تصاویر",
               noImage: "تصویری موجود نیست",
               active: "فعال",
-             
+
               english: "English",
               persian: "فارسی",
           }
@@ -60,7 +60,7 @@ function CarDetails({ car, onBack }) {
               photoCategories: "PHOTO CATEGORIES",
               noImage: "NO IMAGE",
               active: "ACTIVE",
-             
+
               english: "English",
               persian: "فارسی",
           };
@@ -69,50 +69,85 @@ function CarDetails({ car, onBack }) {
         ? car.images
         : [];
 
-    const getImageByType = (type) => {
-        const found = images.find(
-            (img) =>
-                String(img?.view_type || "").toUpperCase() === type &&
-                img?.image_url
-        );
-
-        return found?.image_url
-            ? getImageUrl(found.image_url)
-            : null;
-    };
-
     const gallery = useMemo(
-        () => [
-            {
-                key: "FRONT",
-                label: labels.front,
-                image: getImageByType("FRONT"),
-            },
-            {
-                key: "SIDE",
-                label: labels.side,
-                image: getImageByType("SIDE"),
-            },
-            {
-                key: "REAR",
-                label: labels.rear,
-                image: getImageByType("REAR"),
-            },
-            {
-                key: "INTERIOR",
-                label: labels.interior,
-                image: getImageByType("INTERIOR"),
-            },
-        ],
-        [car, labels.front, labels.side, labels.rear, labels.interior]
+        () => {
+            const sortedImages = images
+    .filter((img) => {
+        const imageUrl = String(img?.image_url || "").trim();
+        return imageUrl.length > 0;
+    })
+    .sort((a, b) => {
+                    const aPrimary =
+                        String(a?.id) === String(car?.primary_image_id);
+                    const bPrimary =
+                        String(b?.id) === String(car?.primary_image_id);
+
+                    if (aPrimary && !bPrimary) return -1;
+                    if (!aPrimary && bPrimary) return 1;
+
+                    return (
+                        Number(a?.sort_order || 0) -
+                        Number(b?.sort_order || 0)
+                    );
+                });
+
+            return sortedImages.map((img, index) => {
+                const viewType =
+                    String(img?.view_type || "").toUpperCase();
+
+                let label;
+
+                if (viewType === "INTERIOR") {
+                    label = labels.interior;
+                } else if (
+                    String(img?.id) ===
+                    String(car?.primary_image_id)
+                ) {
+                    label = isFa ? "تصویر اصلی" : "MAIN IMAGE";
+                } else if (viewType === "FRONT") {
+                    label = labels.front;
+                } else if (viewType === "SIDE") {
+                    label = labels.side;
+                } else if (viewType === "REAR") {
+                    label = labels.rear;
+                } else {
+                    label = isFa
+                        ? "تصویر"
+                        : "IMAGE";
+                }
+
+                return {
+                    key: String(img.id),
+                    label,
+                    image: getImageUrl(img.image_url),
+                };
+            });
+        },
+        [
+            images,
+            car?.primary_image_id,
+            isFa,
+            labels.front,
+            labels.side,
+            labels.rear,
+            labels.interior,
+        ]
     );
 
-    const firstImage =
-        gallery.find((item) => item.image)?.image ||
-        "/car-placeholder.jpg";
+    const primaryImage =
+    images.find(
+        (img) =>
+            String(img?.id) ===
+            String(car?.primary_image_id) &&
+            img?.image_url
+    )?.image_url;
 
-    const [activeImage, setActiveImage] = useState(firstImage);
+const firstImage =
+    gallery.find((item) => item.image)?.image ||
+    "/car-placeholder.jpg";
 
+const [activeImage, setActiveImage] =
+    useState(firstImage);
     const brand =
         car?.brand_name ||
         car?.brand ||
@@ -373,15 +408,18 @@ function CarDetails({ car, onBack }) {
                     </div>
 
                     <div
-                        style={{
-                            width: "100%",
-                            height: "500px",
-                            borderRadius: "16px",
-                            overflow: "hidden",
-                            background: "#050505",
-                            marginBottom: "14px",
-                        }}
-                    >
+    style={{
+        width: "100%",
+        height: "clamp(280px, 60vw, 500px)",
+        borderRadius: "16px",
+        overflow: "hidden",
+        background: "#050505",
+        marginBottom: "14px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+    }}
+>
                         <img
                             src={activeImage}
                             alt={`${brand} ${model}`}
@@ -390,22 +428,23 @@ function CarDetails({ car, onBack }) {
                                     "/car-placeholder.jpg";
                             }}
                             style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                display: "block",
-                            }}
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    display: "block",
+}}
                         />
                     </div>
 
                     <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns:
-                                "repeat(4, minmax(0, 1fr))",
-                            gap: "10px",
-                        }}
-                    >
+    style={{
+        display: "grid",
+        gridTemplateColumns:
+            "repeat(auto-fit, minmax(130px, 1fr))",
+        gap: "10px",
+        width: "100%",
+    }}
+>
                         {gallery.map((item) => (
                             <button
                                 key={item.key}
@@ -417,7 +456,7 @@ function CarDetails({ car, onBack }) {
                                 }}
                                 style={{
                                     position: "relative",
-                                    height: "110px",
+                                    height: "clamp(85px, 18vw, 110px)",
                                     border:
                                         activeImage === item.image
                                             ? "2px solid #d4af37"
@@ -448,26 +487,7 @@ function CarDetails({ car, onBack }) {
                                     />
                                 ) : null}
 
-                                {!item.image && (
-                                    <div
-                                        style={{
-                                            width: "100%",
-                                            height: "100%",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            color: "#666",
-                                            fontSize: isFa
-                                                ? "13px"
-                                                : "11px",
-                                            fontWeight: 700,
-                                            padding: "8px",
-                                            boxSizing: "border-box",
-                                        }}
-                                    >
-                                        {labels.noImage}
-                                    </div>
-                                )}
+
 
                                 <div
                                     style={{
