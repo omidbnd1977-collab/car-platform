@@ -143,6 +143,7 @@ function CarDetails({ car, onBack }) {
     )?.image_url;
 
 const firstImage =
+    (primaryImage && getImageUrl(primaryImage)) ||
     gallery.find((item) => item.image)?.image ||
     "/car-placeholder.jpg";
 

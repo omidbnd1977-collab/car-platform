@@ -88,7 +88,7 @@ if (detailsCar) {
     return (
         <CarDetails
             car={detailsCar}
-            back={() => {
+            onBack={() => {
                 setDetailsCar(null);
                 loadCars();
             }}
