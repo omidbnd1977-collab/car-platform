@@ -1,4 +1,4 @@
-
+﻿
 import React, { useEffect, useState } from "react";
 import { getImageUrl } from "../../utils/imageUrl";
 
@@ -198,6 +198,41 @@ try {
 
 };
 
+
+    const setPrimaryImage = async (imageId) => {
+        if (!imageId || !carId) return;
+
+        try {
+            setError("");
+
+            const res = await fetch(
+                `${API}/cars/${carId}/images/${imageId}/primary`,
+                {
+                    method: "PUT",
+                }
+            );
+
+            const data = await res.json().catch(() => ({}));
+
+            console.log("SET PRIMARY:", data);
+
+            if (!res.ok) {
+                throw new Error(
+                    data?.message ||
+                        `Set primary failed: ${res.status}`
+                );
+            }
+
+            await loadImages();
+        } catch (err) {
+            console.error("SET PRIMARY IMAGE ERROR:", err);
+
+            setError(
+                err?.message ||
+                    "Failed to set primary image."
+            );
+        }
+    };
 const ImageBox = ({ title, type }) => {
 const image = getImage(type);
 
@@ -436,4 +471,5 @@ return (
         </div>
     );
 }
+
 

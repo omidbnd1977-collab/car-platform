@@ -5,3 +5,6 @@
 dist/
 uploads/
 *.log
+
+_backups/
+*.backup.jsx
