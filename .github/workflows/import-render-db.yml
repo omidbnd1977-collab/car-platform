@@ -1,4 +1,4 @@
-name: Import Render PostgreSQL backup
+name: Inspect Render PostgreSQL database
 
 on:
   workflow_dispatch:
@@ -7,9 +7,9 @@ permissions:
   contents: read
 
 jobs:
-  import:
+  inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Install PostgreSQL client
@@ -17,27 +17,41 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
-      - name: Write backup to temporary file
-        env:
-          DB_DUMP: ${{ secrets.DB_DUMP }}
-        run: |
-          umask 077
-          printf '%s' "$DB_DUMP" > /tmp/car-platform.sql
-          test -s /tmp/car-platform.sql
-
-      - name: Import into Render
+      - name: Check Render database
         env:
           RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
         run: |
           test -n "$RENDER_DB_URL"
-          psql "$RENDER_DB_URL" -v ON_ERROR_STOP=1 -f /tmp/car-platform.sql
 
-      - name: Verify tables
-        env:
-          RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
-        run: |
-          psql "$RENDER_DB_URL" -v ON_ERROR_STOP=1 -tAc "SELECT to_regclass('public.cars'), to_regclass('public.car_brands'), to_regclass('public.car_models'), to_regclass('public.dealerships');"
+          echo "=== TABLES ==="
+          psql "$RENDER_DB_URL" \
+            -v ON_ERROR_STOP=1 \
+            -c "\dt public.*"
 
-      - name: Remove temporary backup
-        if: always()
-        run: rm -f /tmp/car-platform.sql
+          echo "=== IMPORTANT TABLES ==="
+          psql "$RENDER_DB_URL" \
+            -v ON_ERROR_STOP=1 \
+            -c "
+              SELECT
+                to_regclass('public.car_brands') AS car_brands,
+                to_regclass('public.car_models') AS car_models,
+                to_regclass('public.cars') AS cars,
+                to_regclass('public.dealerships') AS dealerships;
+            "
+
+          echo "=== ROW COUNTS ==="
+          psql "$RENDER_DB_URL" \
+            -v ON_ERROR_STOP=1 \
+            -c "
+              SELECT 'car_brands' AS table_name, count(*) AS rows
+              FROM public.car_brands
+              UNION ALL
+              SELECT 'car_models', count(*)
+              FROM public.car_models
+              UNION ALL
+              SELECT 'cars', count(*)
+              FROM public.cars
+              UNION ALL
+              SELECT 'dealerships', count(*)
+              FROM public.dealerships;
+            "
