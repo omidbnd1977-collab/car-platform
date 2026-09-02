@@ -21,11 +21,14 @@ jobs:
         env:
           RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
           DB_DUMP: ${{ secrets.DB_DUMP }}
+        shell: bash
         run: |
+          set -e
+
           test -n "$RENDER_DB_URL"
           test -n "$DB_DUMP"
 
-          printf '%s\n' "$DB_DUMP" > /tmp/car-platform.sql
+          printf '%s' "$DB_DUMP" | base64 -d > /tmp/car-platform.sql
 
           psql "$RENDER_DB_URL" \
             -v ON_ERROR_STOP=1 \
