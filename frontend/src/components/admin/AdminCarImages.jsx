@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { getImageUrl } from "../../utils/imageUrl";
 
-const API = "http://localhost:5000/api";
+const API = "https://car-platform-db.onrender.com/api";
 
 const IMAGE_TYPES = [
     {
