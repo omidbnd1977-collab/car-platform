@@ -1,4 +1,4 @@
-name: Import Render PostgreSQL backup
+name: Verify Render PostgreSQL database
 
 on:
   workflow_dispatch:
@@ -7,9 +7,9 @@ permissions:
   contents: read
 
 jobs:
-  import-db:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Install PostgreSQL client
@@ -17,29 +17,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
-      - name: Reset Render database schema
+      - name: Verify database
         env:
           RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
         run: |
           set -e
 
+          echo "=== TABLES ==="
           psql "$RENDER_DB_URL" \
             -v ON_ERROR_STOP=1 \
-            -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
+            -c "\dt public.*"
 
-      - name: Import database backup
-        env:
-          RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
-          DB_DUMP: ${{ secrets.DB_DUMP }}
-        shell: bash
-        run: |
-          set -e
-
-          test -n "$RENDER_DB_URL"
-          test -n "$DB_DUMP"
-
-          printf '%s' "$DB_DUMP" | base64 -d > /tmp/car-platform.sql
-
+          echo "=== ROW COUNTS ==="
           psql "$RENDER_DB_URL" \
             -v ON_ERROR_STOP=1 \
-            -f /tmp/car-platform.sql
+            -c "
+              SELECT 'car_brands' AS table_name, count(*) AS rows
+              FROM public.car_brands
+              UNION ALL
+              SELECT 'car_models', count(*)
+              FROM public.car_models
+              UNION ALL
+              SELECT 'cars', count(*)
+              FROM public.cars
+              UNION ALL
+              SELECT 'dealerships', count(*)
+              FROM public.dealerships;
+            "
