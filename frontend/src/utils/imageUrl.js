@@ -1,4 +1,4 @@
-const API_ORIGIN = "http://localhost:5000";
+const API_ORIGIN = "https://car-platform-db.onrender.com";
 
 export function getImageUrl(value) {
     if (!value) {
