@@ -1,4 +1,4 @@
-name: Inspect Render PostgreSQL database
+name: Import Render PostgreSQL backup
 
 on:
   workflow_dispatch:
@@ -7,9 +7,9 @@ permissions:
   contents: read
 
 jobs:
-  inspect:
+  import-db:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Install PostgreSQL client
@@ -17,41 +17,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
-      - name: Check Render database
+      - name: Import database backup
         env:
           RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
+          DB_DUMP: ${{ secrets.DB_DUMP }}
         run: |
           test -n "$RENDER_DB_URL"
+          test -n "$DB_DUMP"
 
-          echo "=== TABLES ==="
+          printf '%s\n' "$DB_DUMP" > /tmp/car-platform.sql
+
           psql "$RENDER_DB_URL" \
             -v ON_ERROR_STOP=1 \
-            -c "\dt public.*"
-
-          echo "=== IMPORTANT TABLES ==="
-          psql "$RENDER_DB_URL" \
-            -v ON_ERROR_STOP=1 \
-            -c "
-              SELECT
-                to_regclass('public.car_brands') AS car_brands,
-                to_regclass('public.car_models') AS car_models,
-                to_regclass('public.cars') AS cars,
-                to_regclass('public.dealerships') AS dealerships;
-            "
-
-          echo "=== ROW COUNTS ==="
-          psql "$RENDER_DB_URL" \
-            -v ON_ERROR_STOP=1 \
-            -c "
-              SELECT 'car_brands' AS table_name, count(*) AS rows
-              FROM public.car_brands
-              UNION ALL
-              SELECT 'car_models', count(*)
-              FROM public.car_models
-              UNION ALL
-              SELECT 'cars', count(*)
-              FROM public.cars
-              UNION ALL
-              SELECT 'dealerships', count(*)
-              FROM public.dealerships;
-            "
+            -f /tmp/car-platform.sql
