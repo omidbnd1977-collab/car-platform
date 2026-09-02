@@ -44,3 +44,17 @@ jobs:
               SELECT 'dealerships', count(*)
               FROM public.dealerships;
             "
+            
+          echo "=== CAR IMAGES ==="
+          psql "$RENDER_DB_URL" \
+            -v ON_ERROR_STOP=1 \
+            -c "
+              SELECT
+                id,
+                car_id,
+                image_url,
+                view_type,
+                approval_status
+              FROM public.car_images
+              ORDER BY id;
+            "
