@@ -17,6 +17,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
+      - name: Reset Render database schema
+        env:
+          RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
+        run: |
+          set -e
+
+          psql "$RENDER_DB_URL" \
+            -v ON_ERROR_STOP=1 \
+            -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
+
       - name: Import database backup
         env:
           RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
