@@ -5,7 +5,7 @@ import { getImageUrl } from "../utils/imageUrl";
 import CarDetails from "./CarDetails";
 import dealerConfig from "../config/dealerConfig";
 
-const API = "http://localhost:5000/api";
+const API = "https://car-platform-db.onrender.com/api";
 
 export default function AdminCars() {
 const [cars, setCars] = useState([]);
