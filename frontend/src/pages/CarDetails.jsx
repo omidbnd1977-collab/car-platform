@@ -2,6 +2,9 @@ import React, { useMemo, useState } from "react";
 import { getImageUrl } from "../utils/imageUrl";
 import dealerConfig from "../config/dealerConfig";
 
+const PLACEHOLDER_IMAGE =
+    "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23e0e0e0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%23999999'%3ENo Image%3C/text%3E%3C/svg%3E";
+
 function CarDetails({ car, onBack }) {
     const [language, setLanguage] = useState("fa");
 
@@ -32,7 +35,7 @@ function CarDetails({ car, onBack }) {
               photoCategories: "دسته‌بندی تصاویر",
               noImage: "تصویری موجود نیست",
               active: "فعال",
-
+             
               english: "English",
               persian: "فارسی",
           }
@@ -60,7 +63,7 @@ function CarDetails({ car, onBack }) {
               photoCategories: "PHOTO CATEGORIES",
               noImage: "NO IMAGE",
               active: "ACTIVE",
-
+             
               english: "English",
               persian: "فارسی",
           };
@@ -112,7 +115,7 @@ function CarDetails({ car, onBack }) {
                     label = labels.rear;
                 } else {
                     label = isFa
-                        ? "تصویر"
+                        ? "تصویر" 
                         : "IMAGE";
                 }
 
@@ -145,7 +148,7 @@ function CarDetails({ car, onBack }) {
 const firstImage =
     (primaryImage && getImageUrl(primaryImage)) ||
     gallery.find((item) => item.image)?.image ||
-    "/car-placeholder.jpg";
+    PLACEHOLDER_IMAGE;
 
 const [activeImage, setActiveImage] =
     useState(firstImage);
@@ -425,8 +428,10 @@ const [activeImage, setActiveImage] =
                             src={activeImage}
                             alt={`${brand} ${model}`}
                             onError={(e) => {
-                                e.currentTarget.src =
-                                    "/car-placeholder.jpg";
+                                if (e.currentTarget.src !== PLACEHOLDER_IMAGE) {
+                                    e.currentTarget.src =
+                                        PLACEHOLDER_IMAGE;
+                                }
                             }}
                             style={{
     width: "100%",
@@ -488,7 +493,7 @@ const [activeImage, setActiveImage] =
                                     />
                                 ) : null}
 
-
+                                
 
                                 <div
                                     style={{
@@ -903,3 +908,4 @@ function DetailRow({ label, value, isFa }) {
 }
 
 export default CarDetails;
+
