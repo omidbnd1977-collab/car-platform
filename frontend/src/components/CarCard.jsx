@@ -2,6 +2,9 @@ import React from "react";
 import { getImageUrl } from "../utils/imageUrl";
 import dealerConfig from "../config/dealerConfig";
 
+const PLACEHOLDER_IMAGE =
+    "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23e0e0e0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%23999999'%3ENo Image%3C/text%3E%3C/svg%3E";
+
 function CarCard({
     car,
     onViewDetails,
@@ -11,7 +14,7 @@ function CarCard({
         car?.images?.length > 0 &&
         car.images[0]?.image_url
             ? getImageUrl(car.images[0].image_url)
-            : "/car-placeholder.jpg";
+            : PLACEHOLDER_IMAGE;
 
     const brand =
         car?.brand_name ||
@@ -102,8 +105,9 @@ function CarCard({
                     alt={`${brand} ${model}`}
 
                     onError={(event) => {
-                        event.currentTarget.src =
-                            "/car-placeholder.jpg";
+                        if (event.currentTarget.src !== PLACEHOLDER_IMAGE) {
+                            event.currentTarget.src = PLACEHOLDER_IMAGE;
+                        }
                     }}
 
                     style={{
