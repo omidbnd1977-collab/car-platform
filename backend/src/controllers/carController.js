@@ -1,11 +1,5 @@
 const db = require("../config/database");
 
-const imageSearchService =
-require("../services/imageSearchService");
-
-const imageValidatorService =
-require("../services/imageValidatorService");
-
 
 
 
@@ -217,167 +211,140 @@ console.log("BEFORE IMAGE PROCESS");
 
 await client.query("COMMIT");
 // =================================================
-// IMAGE PROCESS AFTER CAR SAVED
+// IMAGE REUSE FROM CATALOG (AFTER CAR SAVED)
+// =================================================
+// به‌جای جستجوی خودکار عکس از گوگل/بینگ (که نتایج
+// بی‌ربط برمی‌گرداند)، اگر این مدل قبلاً با عکس‌های
+// دستی‌آپلودشده ثبت شده باشد، همان عکس‌ها برای خودرو
+// جدید استفاده مجدد می‌شوند. در غیر این صورت، خودرو
+// بدون عکس ذخیره می‌شود تا بعداً دستی آپلود شود.
 // =================================================
 
 try {
 
-    console.log("IMAGE PROCESS STARTED");
-
-
+    console.log("IMAGE REUSE PROCESS STARTED");
     console.log(
-        "START IMAGE SEARCH:",
-        brand,
-        model,
+        "SEARCHING CATALOG FOR:",
+        brandRow.name,
+        modelRow.name,
         year
     );
 
 
-    const images =
-    await imageSearchService.searchCarImages(
-        brand,
-        model,
-        year
+    // ۱) اول دنبال دقیقاً همان برند + مدل + سال بگرد
+    let reuseResult = await client.query(
+        `
+        SELECT
+            ci.image_url,
+            ci.view_type,
+            ci.sort_order
+        FROM car_images ci
+        JOIN cars c ON c.id = ci.car_id
+        WHERE c.brand_id = $1
+        AND c.model_id = $2
+        AND c.year = $3
+        AND c.id != $4
+        AND ci.source_name = 'Admin Upload'
+        ORDER BY ci.sort_order ASC
+        `,
+        [
+            brandRow.id,
+            modelRow.id,
+            year,
+            car.id
+        ]
     );
 
 
-    console.log(
-        "SEARCH RETURN TYPE:",
-        typeof images,
-        Array.isArray(images),
-        images?.length
-    );
+    // ۲) اگر برای همان سال چیزی پیدا نشد، همان
+    // برند + مدل را با نزدیک‌ترین سال موجود امتحان کن
+    if (!reuseResult.rows.length) {
+
+        console.log(
+            "NO EXACT YEAR MATCH - TRYING SAME MODEL, ANY YEAR"
+        );
+
+        reuseResult = await client.query(
+            `
+            SELECT
+                ci.image_url,
+                ci.view_type,
+                ci.sort_order
+            FROM car_images ci
+            JOIN cars c ON c.id = ci.car_id
+            WHERE c.brand_id = $1
+            AND c.model_id = $2
+            AND c.id != $3
+            AND ci.source_name = 'Admin Upload'
+            ORDER BY ABS(c.year - $4) ASC, ci.sort_order ASC
+            `,
+            [
+                brandRow.id,
+                modelRow.id,
+                car.id,
+                year
+            ]
+        );
+
+    }
 
 
-    console.log(
-        "AI IMAGES RESULT:",
-        images
-    );
-
-
-
-    if(Array.isArray(images)){
-
+    if (reuseResult.rows.length) {
 
         let sortOrder = 1;
 
+        for (const img of reuseResult.rows) {
 
-
-        for(const img of images){
-
-
-            if(!img.image_url){
-
-                continue;
-
-            }
-
-
-
-            const exists =
-            await client.query(
-            `
-            SELECT id
-            FROM car_images
-            WHERE car_id=$1
-            AND image_url=$2
-            LIMIT 1
-            `,
-            [
-                car.id,
-                img.image_url
-            ]);
-
-
-
-            if(exists.rows.length){
-
-                continue;
-
-            }
-
-
-
-            const imageResult =
-            await client.query(
-            `
-            INSERT INTO car_images
-            (
-                car_id,
-                image_url,
-                source_name,
-                source_url,
-                view_type,
-                approval_status,
-                ai_processed,
-                sort_order
-            )
-
-            VALUES
-            ($1,$2,$3,$4,$5,$6,$7,$8)
-
-            RETURNING id
-
-            `,
-            [
-                car.id,
-
-                img.image_url,
-
-                img.source_name ||
-                "SearchAPI Google Images",
-
-                img.source_url ||
-                null,
-
-                img.view_type ||
-                "MAIN",
-
-                "APPROVED",
-
-                true,
-
-                sortOrder
-            ]);
-
-
-
-            const imageId =
-            imageResult.rows[0].id;
-
-
-
-            console.log(
-                "IMAGE SAVED:",
-                imageId,
-                "ORDER:",
-                sortOrder
-            );
-
-
-
-            // اولین عکس = عکس اصلی
-
-            if(!car.primary_image_id){
-
-
-                await client.query(
+            const imageResult = await client.query(
                 `
-                UPDATE cars
-                SET primary_image_id=$1
-                WHERE id=$2
+                INSERT INTO car_images
+                (
+                    car_id,
+                    image_url,
+                    source_name,
+                    view_type,
+                    approval_status,
+                    ai_processed,
+                    sort_order
+                )
+                VALUES
+                ($1,$2,$3,$4,'APPROVED',false,$5)
+                RETURNING id
                 `,
                 [
-                    imageId,
-                    car.id
-                ]);
+                    car.id,
+                    img.image_url,
+                    "Reused From Catalog",
+                    img.view_type || "MAIN",
+                    sortOrder
+                ]
+            );
 
+            const imageId = imageResult.rows[0].id;
 
+            console.log(
+                "IMAGE REUSED:",
+                imageId,
+                "FROM:",
+                img.image_url
+            );
 
-                car.primary_image_id =
-                imageId;
+            // اولین عکس = عکس اصلی
+            if (!car.primary_image_id) {
 
+                await client.query(
+                    `
+                    UPDATE cars
+                    SET primary_image_id=$1
+                    WHERE id=$2
+                    `,
+                    [
+                        imageId,
+                        car.id
+                    ]
+                );
 
+                car.primary_image_id = imageId;
 
                 console.log(
                     "PRIMARY IMAGE SET:",
@@ -386,22 +353,29 @@ try {
 
             }
 
-
-
             sortOrder++;
-
 
         }
 
+        console.log(
+            "TOTAL IMAGES REUSED:",
+            reuseResult.rows.length
+        );
 
     }
+    else {
 
+        console.log(
+            "NO CATALOG IMAGES FOUND - car saved without images. Please upload manually."
+        );
+
+    }
 
 }
 catch(imageError){
 
     console.log(
-        "IMAGE ERROR:",
+        "IMAGE REUSE ERROR:",
         imageError.message
     );
 
