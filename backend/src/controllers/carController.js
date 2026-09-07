@@ -1768,3 +1768,186 @@ exports.uploadCarImage = async (req, res) => {
 
     }
 };
+
+
+// =================================================
+// BACKFILL CATALOG IMAGES
+// (برای ماشین‌های موجودی که بدون عکس ثبت شده‌اند)
+// =================================================
+// این تابع تمام ماشین‌هایی که هیچ عکسی ندارند را پیدا
+// می‌کند و اگر برای همان برند+مدل (ترجیحاً همان سال،
+// در غیر این صورت نزدیک‌ترین سال) عکس دستی‌آپلودشده‌ای
+// در جای دیگری از سیستم موجود باشد، همان عکس‌ها را
+// برای این ماشین‌ها هم کپی می‌کند.
+// =================================================
+
+exports.backfillCatalogImages = async (req, res) => {
+
+    try {
+
+        // ماشین‌هایی که هیچ عکسی ندارند
+        const carsWithoutImages = await db.query(
+            `
+            SELECT
+                cars.id,
+                cars.brand_id,
+                cars.model_id,
+                cars.year
+            FROM cars
+            LEFT JOIN car_images
+                ON car_images.car_id = cars.id
+            WHERE car_images.id IS NULL
+            `
+        );
+
+        const results = [];
+
+        for (const car of carsWithoutImages.rows) {
+
+            // ۱) دقیقاً همان برند + مدل + سال
+            let reuseResult = await db.query(
+                `
+                SELECT
+                    ci.image_url,
+                    ci.view_type,
+                    ci.sort_order
+                FROM car_images ci
+                JOIN cars c ON c.id = ci.car_id
+                WHERE c.brand_id = $1
+                AND c.model_id = $2
+                AND c.year = $3
+                AND c.id != $4
+                AND ci.source_name = 'Admin Upload'
+                ORDER BY ci.sort_order ASC
+                `,
+                [
+                    car.brand_id,
+                    car.model_id,
+                    car.year,
+                    car.id
+                ]
+            );
+
+            // ۲) اگر نبود، همان برند+مدل با نزدیک‌ترین سال
+            if (!reuseResult.rows.length) {
+
+                reuseResult = await db.query(
+                    `
+                    SELECT
+                        ci.image_url,
+                        ci.view_type,
+                        ci.sort_order
+                    FROM car_images ci
+                    JOIN cars c ON c.id = ci.car_id
+                    WHERE c.brand_id = $1
+                    AND c.model_id = $2
+                    AND c.id != $3
+                    AND ci.source_name = 'Admin Upload'
+                    ORDER BY ABS(c.year - $4) ASC, ci.sort_order ASC
+                    `,
+                    [
+                        car.brand_id,
+                        car.model_id,
+                        car.id,
+                        car.year
+                    ]
+                );
+
+            }
+
+            if (!reuseResult.rows.length) {
+
+                results.push({
+                    car_id: car.id,
+                    images_added: 0
+                });
+
+                continue;
+
+            }
+
+            let sortOrder = 1;
+            let firstImageId = null;
+
+            for (const img of reuseResult.rows) {
+
+                const imageResult = await db.query(
+                    `
+                    INSERT INTO car_images
+                    (
+                        car_id,
+                        image_url,
+                        source_name,
+                        view_type,
+                        approval_status,
+                        ai_processed,
+                        sort_order
+                    )
+                    VALUES
+                    ($1,$2,$3,$4,'APPROVED',false,$5)
+                    RETURNING id
+                    `,
+                    [
+                        car.id,
+                        img.image_url,
+                        "Reused From Catalog",
+                        img.view_type || "MAIN",
+                        sortOrder
+                    ]
+                );
+
+                const imageId = imageResult.rows[0].id;
+
+                if (!firstImageId) {
+                    firstImageId = imageId;
+                }
+
+                sortOrder++;
+
+            }
+
+            await db.query(
+                `
+                UPDATE cars
+                SET primary_image_id = $1
+                WHERE id = $2
+                `,
+                [
+                    firstImageId,
+                    car.id
+                ]
+            );
+
+            results.push({
+                car_id: car.id,
+                images_added: reuseResult.rows.length
+            });
+
+        }
+
+        return res.json({
+
+            message: "Backfill completed",
+
+            total_cars_checked:
+                carsWithoutImages.rows.length,
+
+            results
+
+        });
+
+    }
+    catch (error) {
+
+        console.log(
+            "BACKFILL ERROR:",
+            error.message
+        );
+
+        return res.status(500).json({
+            error: error.message
+        });
+
+    }
+
+};
