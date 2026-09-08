@@ -1,449 +1,320 @@
-﻿
-import React, { useEffect, useState } from "react";
-import { getImageUrl } from "../../utils/imageUrl";
+﻿import React, { useEffect, useState } from "react";
+import AdminCarImages from "../components/admin/AdminCarImages";
+import EditCar from "./EditCar";
+import AddCar from "./AddCar";
+import { getImageUrl } from "../utils/imageUrl";
+import CarDetails from "./CarDetails";
+import dealerConfig from "../config/dealerConfig";
 
 const API = "https://car-platform-db.onrender.com/api";
 
-const IMAGE_TYPES = [
-    {
-        type: "FRONT",
-        title: "Front View",
-    },
-    {
-        type: "REAR",
-        title: "Rear View",
-    },
-    {
-        type: "INTERIOR",
-        title: "Interior",
-    },
-    {
-        type: "MAIN",
-        title: "Main Image",
-    },
-];
+export default function AdminCars() {
+const [cars, setCars] = useState([]);
+const [loading, setLoading] = useState(false);
+const [selectedCar, setSelectedCar] = useState(null);
+const [editCar, setEditCar] = useState(null);
+const [addingCar, setAddingCar] = useState(false);
+const [error, setError] = useState("");
+const [detailsCar, setDetailsCar] = useState(null);
 
-export default function AdminCarImages({ carId }) {
-    const [images, setImages] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState("");
-    const [error, setError] = useState("");
+const loadCars = async () => {
+    try {
+        setLoading(true);
+        setError("");
 
-    const loadImages = async () => {
-        if (!carId) return;
+        const res = await fetch(`${API}/cars`);
 
-        try {
-            setLoading(true);
-            setError("");
-
-            const res = await fetch(`${API}/cars/${carId}`);
-
-            if (!res.ok) {
-                throw new Error(
-                    `Failed to load car images: ${res.status}`
-                );
-            }
-
-            const data = await res.json();
-
-            const carImages = data?.car?.images || [];
-
-            console.log("CAR IMAGES:", carImages);
-
-            setImages(carImages);
-        } catch (err) {
-            console.error("LOAD IMAGES ERROR:", err);
-            setError("Failed to load car images.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        loadImages();
-    }, [carId]);
-
-    const getImage = (type) => {
-        if (!images.length) return undefined;
-
-        return images.find(
-            (img) =>
-                String(img?.view_type || "").toUpperCase() ===
-                type.toUpperCase()
-        );
-    };
-
-    const uploadImage = async (type, event) => {
-        const file = event.target.files?.[0];
-
-        if (!file) {
-            return;
+        if (!res.ok) {
+            throw new Error(`Failed to load cars: ${res.status}`);
         }
 
-        try {
-            setUploading(type);
-            setError("");
+        const data = await res.json();
 
-            const formData = new FormData();
+        console.log("CARS:", data);
 
-            formData.append("image", file);
-            formData.append("view_type", type);
-
-            const res = await fetch(
-                `${API}/cars/${carId}/images/upload`,
-                {
-                    method: "POST",
-                    body: formData,
-                }
-            );
-
-            const data = await res.json();
-
-            console.log("UPLOAD:", data);
-
-            if (!res.ok) {
-                throw new Error(
-                    data?.message ||
-                        `Upload failed: ${res.status}`
-                );
-            }
-
-            /*
-             * Immediately add the newly uploaded image to state.
-             * This makes the image appear without depending only
-             * on a second API request.
-             */
-            if (data?.image_id && data?.image_url) {
-                const newImage = {
-                    id: data.image_id,
-                    image_url: data.image_url,
-                    view_type: data.view_type || type,
-                    sort_order: data.sort_order ?? 0,
-                    is_primary: type === "FRONT",
-                };
-
-                setImages((current) => {
-                    const filtered = current.filter(
-                        (img) =>
-                            !(
-                                String(img?.view_type || "").toUpperCase() ===
-                                    type.toUpperCase()
-                            )
-                    );
-
-                    return [...filtered, newImage];
-                });
-            }
-
-            /*
-             * Reload from backend as well so the frontend state
-             * remains synchronized with the database.
-             */
-            await loadImages();
-        } catch (err) {
-            console.error("UPLOAD ERROR:", err);
-            setError(
-                err?.message || "Image upload failed."
-            );
-        } finally {
-            setUploading("");
-            event.target.value = "";
-        }
-    };
-
-    const deleteImage = async (imageId) => {
-if (!imageId) return;
-
-const confirmed = window.confirm(
-    "Are you sure you want to delete this image?"
-);
-
-if (!confirmed) {
-    return;
-}
-
-try {
-    setError("");
-
-    const res = await fetch(
-        `${API}/cars/${carId}/images/${imageId}`,
-        {
-            method: "DELETE",
-        }
-    );
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-        throw new Error(
-            data?.message ||
-                `Delete failed: ${res.status}`
-        );
+        setCars(Array.isArray(data?.cars) ? data.cars : []);
+    } catch (err) {
+        console.error("LOAD CARS ERROR:", err);
+        setError(err?.message || "Failed to load cars.");
+    } finally {
+        setLoading(false);
     }
-
-    setImages((current) =>
-        current.filter(
-            (img) => String(img.id) !== String(imageId)
-        )
-    );
-
-    await loadImages();
-} catch (err) {
-    console.error("DELETE IMAGE ERROR:", err);
-
-    setError(
-        err?.message || "Failed to delete image."
-    );
-}
-
 };
 
+useEffect(() => {
+    loadCars();
+}, []);
 
-    const setPrimaryImage = async (imageId) => {
-        if (!imageId || !carId) return;
+const getCarImage = (car) => {
+    const images = Array.isArray(car?.images)
+        ? car.images
+        : [];
 
-        try {
-            setError("");
+    const front = images.find((img) => {
+        return (
+            String(img?.view_type || "").toUpperCase() === "FRONT" &&
+            img?.image_url
+        );
+    });
 
-            const res = await fetch(
-                `${API}/cars/${carId}/images/${imageId}/primary`,
-                {
-                    method: "PUT",
-                }
-            );
+    if (front?.image_url) {
+        return getImageUrl(front.image_url);
+    }
 
-            const data = await res.json().catch(() => ({}));
+    const primary = images.find(
+        (img) => img?.is_primary === true
+    );
 
-            console.log("SET PRIMARY:", data);
+    if (primary?.image_url) {
+        return getImageUrl(primary.image_url);
+    }
 
-            if (!res.ok) {
-                throw new Error(
-                    data?.message ||
-                        `Set primary failed: ${res.status}`
-                );
-            }
+    const uploaded = images.find((img) => {
+        return String(img?.image_url || "").startsWith(
+            "/uploads/cars/"
+        );
+    });
 
-            await loadImages();
-        } catch (err) {
-            console.error("SET PRIMARY IMAGE ERROR:", err);
+    if (uploaded?.image_url) {
+        return getImageUrl(uploaded.image_url);
+    }
 
-            setError(
-                err?.message ||
-                    "Failed to set primary image."
-            );
-        }
-    };
-const ImageBox = ({ title, type }) => {
-const image = getImage(type);
+    if (images[0]?.image_url) {
+        return getImageUrl(images[0].image_url);
+    }
 
-const originalUrl = image?.image_url || "";
+    return "";
+};
 
-const imageUrl = originalUrl
-    ? getImageUrl(originalUrl)
-    : "";
+if (detailsCar) {
+    return (
+        <CarDetails
+            car={detailsCar}
+            onBack={() => {
+                setDetailsCar(null);
+                loadCars();
+            }}
+            onEdit={() => {
+                setEditCar(detailsCar);
+                setDetailsCar(null);
+            }}
+            onManageImages={() => {
+                setSelectedCar(detailsCar);
+                setDetailsCar(null);
+            }}
+        />
+    );
+}
 
-console.log("IMAGE BOX:", {
-    type,
-    image,
-    originalUrl,
-    imageUrl,
-});
+if (addingCar) {
+    return (
+        <div
+            style={{
+                minHeight: "100vh",
+                background: "#f4f4f4",
+                padding: "30px",
+                boxSizing: "border-box",
+                fontFamily: "Arial, sans-serif",
+            }}
+        >
+            <div
+                style={{
+                    background: "#fff",
+                    borderRadius: "14px",
+                    padding: "25px",
+                    border: "1px solid #e5e5e5",
+                }}
+            >
+                <AddCar
+                    back={() => {
+                        setAddingCar(false);
+                        loadCars();
+                    }}
+                />
+            </div>
+        </div>
+    );
+}
+
+if (selectedCar) {
+    return (
+        <div
+            style={{
+                minHeight: "100vh",
+                background: "#f4f4f4",
+                padding: "30px",
+                boxSizing: "border-box",
+                fontFamily: "Arial, sans-serif",
+            }}
+        >
+            <button
+                type="button"
+                onClick={() => {
+                    setSelectedCar(null);
+                    loadCars();
+                }}
+                style={{
+                    padding: "10px 18px",
+                    border: "none",
+                    borderRadius: "7px",
+                    background: "#111",
+                    color: "#fff",
+                    cursor: "pointer",
+                    marginBottom: "25px",
+                }}
+            >
+                ← Back to Cars
+            </button>
+
+            <div
+                style={{
+                    background: "#fff",
+                    padding: "25px",
+                    borderRadius: "14px",
+                    border: "1px solid #e5e5e5",
+                }}
+            >
+                <p
+                    style={{
+                        margin: "0 0 8px",
+                        color: "#999",
+                        fontSize: "12px",
+                        letterSpacing: "2px",
+                    }}
+                >
+                    VEHICLE IMAGES
+                </p>
+
+                <h1
+                    style={{
+                        margin: "0 0 25px",
+                        fontSize: "30px",
+                    }}
+                >
+                    {selectedCar.brand_name || selectedCar.brand || ""}
+                    {" "}
+                    {selectedCar.model_name || selectedCar.model || ""}
+                </h1>
+
+                <AdminCarImages carId={selectedCar.id} />
+            </div>
+        </div>
+    );
+}
+
+if (editCar) {
+    return (
+        <div
+            style={{
+                minHeight: "100vh",
+                background: "#f4f4f4",
+                padding: "30px",
+                boxSizing: "border-box",
+                fontFamily: "Arial, sans-serif",
+            }}
+        >
+            <button
+                type="button"
+                onClick={() => {
+                    setEditCar(null);
+                    loadCars();
+                }}
+                style={{
+                    padding: "10px 18px",
+                    border: "none",
+                    borderRadius: "7px",
+                    background: "#111",
+                    color: "#fff",
+                    cursor: "pointer",
+                    marginBottom: "25px",
+                }}
+            >
+                ← Back to Cars
+            </button>
+
+            <div
+                style={{
+                    background: "#fff",
+                    borderRadius: "14px",
+                    padding: "25px",
+                    border: "1px solid #e5e5e5",
+                }}
+            >
+                <EditCar
+                    car={editCar}
+                    back={() => {
+                        setEditCar(null);
+                        loadCars();
+                    }}
+                />
+            </div>
+        </div>
+    );
+}
 
 return (
     <div
         style={{
-            width: "300px",
-            border: "1px solid #ddd",
-            borderRadius: "12px",
-            padding: "15px",
-            background: "#fff",
+            minHeight: "100vh",
+            background: "#f4f4f4",
+            padding: "35px",
             boxSizing: "border-box",
+            fontFamily: "Arial, sans-serif",
         }}
     >
-        <h3
-            style={{
-                marginTop: 0,
-                marginBottom: "15px",
-            }}
-        >
-            {title}
-        </h3>
-                <div
-                    style={{
-                        width: "100%",
-                        height: "200px",
-                        borderRadius: "10px",
-                        background: "#f2f2f2",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                        marginBottom: "12px",
-                    }}
-                >
-                    {imageUrl ? (
-                        <img
-                            key={`${image.id}-${imageUrl}`}
-                            src={imageUrl}
-                            alt={
-                                image.view_type ||
-                                `${type} car image`
-                            }
-                            style={{
-                                display: "block",
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain",
-                            }}
-                            onLoad={(event) => {
-                                console.log(
-                                    "IMAGE LOADED:",
-                                    {
-                                        type,
-                                        src:
-                                            event
-                                                .currentTarget
-                                                .src,
-                                        width:
-                                            event
-                                                .currentTarget
-                                                .naturalWidth,
-                                        height:
-                                            event
-                                                .currentTarget
-                                                .naturalHeight,
-                                    }
-                                );
-                            }}
-                            onError={(event) => {
-                                console.error(
-                                    "IMAGE ERROR:",
-                                    {
-                                        type,
-                                        src:
-                                            event
-                                                .currentTarget
-                                                .src,
-                                    }
-                                );
-
-                                /*
-                                 * Do not let a broken image
-                                 * create a permanent broken-image
-                                 * icon.
-                                 */
-                                event.currentTarget.style.display =
-                                    "none";
-                            }}
-                        />
-                    ) : (
-                        <span
-                            style={{
-                                color: "#999",
-                            }}
-                        >
-                            No Image
-                        </span>
-                    )}
-                </div>
-
-                {image && (
-                    <>
-                        <p
-                            style={{
-                                margin: "8px 0",
-                            }}
-                        >
-                            <strong>
-                                {image.view_type}
-                            </strong>
-                        </p>
-
-                        <div
-                            style={{
-                                fontSize: "11px",
-                                color: "#666",
-                                wordBreak: "break-all",
-                                marginBottom: "12px",
-                            }}
-                        >
-                            {originalUrl}
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() =>
-                                deleteImage(image.id)
-                            }
-                            style={{
-                                padding:
-                                    "8px 14px",
-                                border: "none",
-                                borderRadius: "6px",
-                                background:
-                                    "#d32f2f",
-                                color: "#fff",
-                                cursor: "pointer",
-                                marginBottom:
-                                    "15px",
-                            }}
-                        >
-                            Delete
-                        </button>
-                    </>
-                )}
-
-                <div>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(event) =>
-                            uploadImage(
-                                type,
-                                event
-                            )
-                        }
-                        disabled={
-                            uploading === type
-                        }
-                    />
-                </div>
-
-                {uploading === type && (
-                    <p
-                        style={{
-                            marginBottom: 0,
-                            color: "#555",
-                        }}
-                    >
-                        Uploading...
-                    </p>
-                )}
-            </div>
-        );
-    };
-
-    return (
         <div
             style={{
-                padding: "30px",
-                boxSizing: "border-box",
+                maxWidth: "1400px",
+                margin: "0 auto",
             }}
         >
-            <h2>Car Images Manager</h2>
+            <div
+                style={{
+                    background: "#111",
+                    color: "#fff",
+                    padding: "30px",
+                    borderRadius: "16px",
+                    marginBottom: "30px",
+                }}
+            >
+                <p
+                    style={{
+                        margin: "0 0 8px",
+                        color: "#aaa",
+                        fontSize: "12px",
+                        letterSpacing: "3px",
+                    }}
+                >
+                    ADMIN PANEL
+                </p>
 
-            {loading && (
-                <p>Loading images...</p>
-            )}
+                <h1
+                    style={{
+                        margin: 0,
+                        fontSize: "36px",
+                    }}
+                >
+                    Manage Cars
+                </h1>
+
+                <p
+                    style={{
+                        margin: "10px 0 0",
+                        color: "#aaa",
+                    }}
+                >
+                    Manage vehicles, images and listings.
+                </p>
+            </div>
 
             {error && (
                 <div
                     style={{
-                        padding: "10px 14px",
-                        marginBottom: "20px",
+                        padding: "14px 18px",
+                        marginBottom: "25px",
                         background: "#ffebee",
                         color: "#c62828",
-                        borderRadius: "8px",
+                        borderRadius: "9px",
                     }}
                 >
                     {error}
@@ -453,23 +324,333 @@ return (
             <div
                 style={{
                     display: "flex",
-                    gap: "20px",
-                    flexWrap: "wrap",
-                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "25px",
                 }}
             >
-                {IMAGE_TYPES.map(
-                    ({ type, title }) => (
-                        <ImageBox
-                            key={type}
-                            type={type}
-                            title={title}
-                        />
-                    )
-                )}
+                <div>
+                    <h2
+                        style={{
+                            margin: 0,
+                            fontSize: "24px",
+                        }}
+                    >
+                        Cars
+                    </h2>
+
+                    <p
+                        style={{
+                            margin: "6px 0 0",
+                            color: "#888",
+                            fontSize: "14px",
+                        }}
+                    >
+                        {cars.length} vehicles
+                    </p>
+                </div>
+
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "15px",
+                    }}
+                >
+                    {loading && (
+                        <span
+                            style={{
+                                color: "#777",
+                                fontSize: "14px",
+                            }}
+                        >
+                            Loading...
+                        </span>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={() => setAddingCar(true)}
+                        style={{
+                            padding: "12px 22px",
+                            border: "none",
+                            borderRadius: "8px",
+                            background: "#111",
+                            color: "#fff",
+                            cursor: "pointer",
+                            fontWeight: "700",
+                            fontSize: "13px",
+                        }}
+                    >
+                        + Add New Car
+                    </button>
+                </div>
+            </div>
+
+            {!loading && cars.length === 0 && (
+                <div
+                    style={{
+                        background: "#fff",
+                        borderRadius: "14px",
+                        padding: "60px 20px",
+                        textAlign: "center",
+                        border: "1px solid #e5e5e5",
+                    }}
+                >
+                    <h3>No cars found</h3>
+
+                    <p
+                        style={{
+                            color: "#888",
+                        }}
+                    >
+                        Add a car to see it here.
+                    </p>
+                </div>
+            )}
+
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                        "repeat(auto-fill, minmax(300px, 1fr))",
+                    gap: "25px",
+                }}
+            >
+                {cars.map((car) => {
+                    const imageUrl = getCarImage(car);
+
+                    const brand =
+                        car.brand_name ||
+                        car.brand ||
+                        "";
+
+                    const model =
+                        car.model_name ||
+                        car.model ||
+                        "";
+
+                    const price = car.price_aed
+                        ? Number(car.price_aed).toLocaleString(
+                              "en-US"
+                          )
+                        : "N/A";
+
+                    return (
+                        <div
+                            key={car.id}
+                            style={{
+                                background: "#fff",
+                                borderRadius: "14px",
+                                overflow: "hidden",
+                                border:
+                                    "1px solid #e1e1e1",
+                                boxShadow:
+                                    "0 6px 20px rgba(0,0,0,0.06)",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    height: "210px",
+                                    background: "#e9e9e9",
+                                    overflow: "hidden",
+                                }}
+                            >
+                                {imageUrl ? (
+                                    <img
+                                        src={imageUrl}
+                                        alt={`${brand} ${model}`}
+                                        onError={(event) => {
+                                            event.currentTarget.style.display =
+                                                "none";
+                                        }}
+                                        style={{
+                                            width: "100%",
+                                            height: "100%",
+                                            objectFit: "cover",
+                                            display: "block",
+                                        }}
+                                    />
+                                ) : (
+                                    <div
+                                        style={{
+                                            width: "100%",
+                                            height: "100%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            color: "#999",
+                                        }}
+                                    >
+                                        No Image
+                                    </div>
+                                )}
+                            </div>
+
+                            <div
+                                style={{
+                                    padding: "20px",
+                                }}
+                            >
+                                <h3
+                                    style={{
+                                        margin:
+                                            "0 0 8px",
+                                        fontSize: "21px",
+                                    }}
+                                >
+                                    {brand} {model}
+                                </h3>
+
+                                <div
+                                    style={{
+                                        display: "grid",
+                                        gridTemplateColumns:
+                                            "1fr 1fr",
+                                        gap: "12px",
+                                        padding:
+                                            "14px 0",
+                                        borderTop:
+                                            "1px solid #eee",
+                                        borderBottom:
+                                            "1px solid #eee",
+                                    }}
+                                >
+                                    <div>
+                                        <small
+                                            style={{
+                                                color: "#999",
+                                            }}
+                                        >
+                                            YEAR
+                                        </small>
+
+                                        <div
+                                            style={{
+                                                fontWeight:
+                                                    "600",
+                                                marginTop:
+                                                    "4px",
+                                            }}
+                                        >
+                                            {car.year ||
+                                                "-"}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <small
+                                            style={{
+                                                color: "#999",
+                                            }}
+                                        >
+                                            PRICE
+                                        </small>
+
+                                        <div
+                                            style={{
+                                                fontWeight:
+                                                    "700",
+                                                marginTop:
+                                                    "4px",
+                                            }}
+                                        >
+                                            {price} {dealerConfig.currency}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: "10px",
+                                        marginTop: "18px",
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setSelectedCar(
+                                                car
+                                            )
+                                        }
+                                        style={{
+                                            flex: 1,
+                                            padding:
+                                                "11px 8px",
+                                            border: "none",
+                                            borderRadius:
+                                                "7px",
+                                            background:
+                                                "#111",
+                                            color: "#fff",
+                                            cursor:
+                                                "pointer",
+                                            fontWeight:
+                                                "600",
+                                            fontSize:
+                                                "12px",
+                                        }}
+                                    >
+                                        MANAGE IMAGES
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setEditCar(
+                                                car
+                                            )
+                                        }
+                                        style={{
+                                            flex: 1,
+                                            padding:
+                                                "11px 8px",
+                                            border:
+                                                "1px solid #ccc",
+                                            borderRadius:
+                                                "7px",
+                                            background:
+                                                "#fff",
+                                            color:
+                                                "#111",
+                                            cursor:
+                                                "pointer",
+                                            fontWeight:
+                                                "600",
+                                            fontSize:
+                                                "12px",
+                                        }}
+                                    >
+                                        EDIT CAR
+                                    </button>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailsCar(car)}
+                                    style={{
+                                        width: "100%",
+                                        marginTop: "10px",
+                                        padding: "11px",
+                                        border: "1px solid #111",
+                                        borderRadius: "7px",
+                                        background: "#fff",
+                                        color: "#111",
+                                        cursor: "pointer",
+                                        fontWeight: "600",
+                                        fontSize: "12px",
+                                    }}
+                                >
+                                    VIEW DETAILS
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
-    );
+    </div>
+);
+
 }
-
-
