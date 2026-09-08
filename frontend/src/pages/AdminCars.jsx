@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import AdminCarImages from "../components/admin/AdminCarImages";
 import EditCar from "./EditCar";
 import AddCar from "./AddCar";
@@ -330,3 +330,327 @@ return (
                 }}
             >
                 <div>
+                    <h2
+                        style={{
+                            margin: 0,
+                            fontSize: "24px",
+                        }}
+                    >
+                        Cars
+                    </h2>
+
+                    <p
+                        style={{
+                            margin: "6px 0 0",
+                            color: "#888",
+                            fontSize: "14px",
+                        }}
+                    >
+                        {cars.length} vehicles
+                    </p>
+                </div>
+
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "15px",
+                    }}
+                >
+                    {loading && (
+                        <span
+                            style={{
+                                color: "#777",
+                                fontSize: "14px",
+                            }}
+                        >
+                            Loading...
+                        </span>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={() => setAddingCar(true)}
+                        style={{
+                            padding: "12px 22px",
+                            border: "none",
+                            borderRadius: "8px",
+                            background: "#111",
+                            color: "#fff",
+                            cursor: "pointer",
+                            fontWeight: "700",
+                            fontSize: "13px",
+                        }}
+                    >
+                        + Add New Car
+                    </button>
+                </div>
+            </div>
+
+            {!loading && cars.length === 0 && (
+                <div
+                    style={{
+                        background: "#fff",
+                        borderRadius: "14px",
+                        padding: "60px 20px",
+                        textAlign: "center",
+                        border: "1px solid #e5e5e5",
+                    }}
+                >
+                    <h3>No cars found</h3>
+
+                    <p
+                        style={{
+                            color: "#888",
+                        }}
+                    >
+                        Add a car to see it here.
+                    </p>
+                </div>
+            )}
+
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                        "repeat(auto-fill, minmax(300px, 1fr))",
+                    gap: "25px",
+                }}
+            >
+                {cars.map((car) => {
+                    const imageUrl = getCarImage(car);
+
+                    const brand =
+                        car.brand_name ||
+                        car.brand ||
+                        "";
+
+                    const model =
+                        car.model_name ||
+                        car.model ||
+                        "";
+
+                    const price = car.price_aed
+                        ? Number(car.price_aed).toLocaleString(
+                              "en-US"
+                          )
+                        : "N/A";
+
+                    return (
+                        <div
+                            key={car.id}
+                            style={{
+                                background: "#fff",
+                                borderRadius: "14px",
+                                overflow: "hidden",
+                                border:
+                                    "1px solid #e1e1e1",
+                                boxShadow:
+                                    "0 6px 20px rgba(0,0,0,0.06)",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    height: "210px",
+                                    background: "#e9e9e9",
+                                    overflow: "hidden",
+                                }}
+                            >
+                                {imageUrl ? (
+                                    <img
+                                        src={imageUrl}
+                                        alt={`${brand} ${model}`}
+                                        onError={(event) => {
+                                            event.currentTarget.style.display =
+                                                "none";
+                                        }}
+                                        style={{
+                                            width: "100%",
+                                            height: "100%",
+                                            objectFit: "cover",
+                                            display: "block",
+                                        }}
+                                    />
+                                ) : (
+                                    <div
+                                        style={{
+                                            width: "100%",
+                                            height: "100%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            color: "#999",
+                                        }}
+                                    >
+                                        No Image
+                                    </div>
+                                )}
+                            </div>
+
+                            <div
+                                style={{
+                                    padding: "20px",
+                                }}
+                            >
+                                <h3
+                                    style={{
+                                        margin:
+                                            "0 0 8px",
+                                        fontSize: "21px",
+                                    }}
+                                >
+                                    {brand} {model}
+                                </h3>
+
+                                <div
+                                    style={{
+                                        display: "grid",
+                                        gridTemplateColumns:
+                                            "1fr 1fr",
+                                        gap: "12px",
+                                        padding:
+                                            "14px 0",
+                                        borderTop:
+                                            "1px solid #eee",
+                                        borderBottom:
+                                            "1px solid #eee",
+                                    }}
+                                >
+                                    <div>
+                                        <small
+                                            style={{
+                                                color: "#999",
+                                            }}
+                                        >
+                                            YEAR
+                                        </small>
+
+                                        <div
+                                            style={{
+                                                fontWeight:
+                                                    "600",
+                                                marginTop:
+                                                    "4px",
+                                            }}
+                                        >
+                                            {car.year ||
+                                                "-"}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <small
+                                            style={{
+                                                color: "#999",
+                                            }}
+                                        >
+                                            PRICE
+                                        </small>
+
+                                        <div
+                                            style={{
+                                                fontWeight:
+                                                    "700",
+                                                marginTop:
+                                                    "4px",
+                                            }}
+                                        >
+                                            {price} {dealerConfig.currency}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: "10px",
+                                        marginTop: "18px",
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setSelectedCar(
+                                                car
+                                            )
+                                        }
+                                        style={{
+                                            flex: 1,
+                                            padding:
+                                                "11px 8px",
+                                            border: "none",
+                                            borderRadius:
+                                                "7px",
+                                            background:
+                                                "#111",
+                                            color: "#fff",
+                                            cursor:
+                                                "pointer",
+                                            fontWeight:
+                                                "600",
+                                            fontSize:
+                                                "12px",
+                                        }}
+                                    >
+                                        MANAGE IMAGES
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setEditCar(
+                                                car
+                                            )
+                                        }
+                                        style={{
+                                            flex: 1,
+                                            padding:
+                                                "11px 8px",
+                                            border:
+                                                "1px solid #ccc",
+                                            borderRadius:
+                                                "7px",
+                                            background:
+                                                "#fff",
+                                            color:
+                                                "#111",
+                                            cursor:
+                                                "pointer",
+                                            fontWeight:
+                                                "600",
+                                            fontSize:
+                                                "12px",
+                                        }}
+                                    >
+                                        EDIT CAR
+                                    </button>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailsCar(car)}
+                                    style={{
+                                        width: "100%",
+                                        marginTop: "10px",
+                                        padding: "11px",
+                                        border: "1px solid #111",
+                                        borderRadius: "7px",
+                                        background: "#fff",
+                                        color: "#111",
+                                        cursor: "pointer",
+                                        fontWeight: "600",
+                                        fontSize: "12px",
+                                    }}
+                                >
+                                    VIEW DETAILS
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    </div>
+);
+
+}
