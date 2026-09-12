@@ -1509,10 +1509,12 @@ exports.uploadCarImage = async (req, res) => {
         // Validate view type
         // -----------------------------------------
 
-        const allowedTypes = [
+                const allowedTypes = [
             "FRONT",
             "REAR",
-            "INTERIOR"
+            "INTERIOR",
+            "SIDE",
+            "MAIN"
         ];
 
         if (!allowedTypes.includes(viewType)) {
