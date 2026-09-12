@@ -36,6 +36,29 @@ services:
         sync: false
       - key: DB_PASSWORD
         sync: false
+      # محل ذخیره‌ی فایل‌های آپلودی (backend/src/services/storageService.js).
+      # خالی یا local یعنی دیسک موقت سرویس؛ روی Render فایل‌های این دیسک با
+      # هر دیپلوی/ری‌استارت پاک می‌شوند، پس برای ماندگاری عکس‌ها یک باکت
+      # S3 یا Cloudflare R2 بسازید و مقادیر زیر را پر کنید
+      # (S3_PUBLIC_BASE_URL برای R2 الزامی است).
+      - key: STORAGE_PROVIDER
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+        secret: true
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+        secret: true
+      - key: S3_PUBLIC_BASE_URL
+        sync: false
+      - key: S3_KEY_PREFIX
+        sync: false
 
   # ------------------------------------------------------------
   # Frontend (Static site / Vite)

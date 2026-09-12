@@ -5,11 +5,83 @@ const API =
     import.meta.env.VITE_API_URL ||
     "https://car-platform-db.onrender.com/api";
 
+// ------------------------------------------------------------
+// خواندن پیام واقعی خطا از پاسخ سرور
+// ------------------------------------------------------------
+// بک‌اند همه‌ی خطاها را به‌صورت JSON و با کلید "error"
+// برمی‌گرداند (مثلاً «File too large» یا «Only image files
+// are allowed»). اگر هم پاسخ JSON نباشد (خطای ۵۰۲ پراکسی یا
+// صفحه‌ی HTML) همان متن/کد وضعیت را نشان می‌دهیم تا اپراتور
+// واقعاً بداند چه شده است.
+// ------------------------------------------------------------
+async function readResponseError(res, preReadText, preParsed) {
+    let text = preReadText;
+
+    if (text === undefined) {
+        try {
+            text = await res.text();
+        } catch {
+            text = "";
+        }
+    }
+
+    if (preParsed && typeof preParsed === "object") {
+        const early = preParsed.error || preParsed.message;
+
+        if (early) {
+            return String(early);
+        }
+    }
+
+    let parsed = null;
+
+    if (text) {
+        try {
+            parsed = JSON.parse(text);
+        } catch {
+            parsed = null;
+        }
+    }
+
+    if (parsed && typeof parsed === "object") {
+        const serverMessage =
+            parsed.error ||
+            parsed.message ||
+            parsed.details ||
+            (typeof parsed.error === "object"
+                ? parsed.error.message
+                : "");
+
+        if (serverMessage) {
+            return String(serverMessage);
+        }
+    }
+
+    const looksLikeHtml = /<\s*(html|body|!doctype)/i.test(text);
+
+    if (text && !looksLikeHtml) {
+        return text.trim().slice(0, 300);
+    }
+
+    if (res.status === 413) {
+        return "حجم فایل بیش از حد مجاز سرور است (۱۵ مگابایت).";
+    }
+
+    return `خطای سرور با کد ${res.status}`;
+}
+
 export default function AdminCarImages({ carId }) {
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState("");
     const [message, setMessage] = useState("");
+    const [messageType, setMessageType] = useState("success");
+
+    // پیام سبز برای موفقیت و قرمز برای خطا
+    const showMessage = (text, type = "success") => {
+        setMessage(text);
+        setMessageType(type);
+    };
 
 
     // ---------------------------------------
@@ -25,7 +97,7 @@ export default function AdminCarImages({ carId }) {
 
             if (!res.ok) {
                 throw new Error(
-                    `HTTP ${res.status}`
+                    await readResponseError(res)
                 );
             }
 
@@ -45,8 +117,10 @@ export default function AdminCarImages({ carId }) {
                 error
             );
 
-            setMessage(
-                "خطا در دریافت تصاویر"
+            showMessage(
+                "خطا در دریافت تصاویر: " +
+                    (error?.message || "خطای نامشخص"),
+                "error"
             );
         } finally {
             setLoading(false);
@@ -115,21 +189,30 @@ export default function AdminCarImages({ carId }) {
                 }
             );
 
-            const data = await res.json();
+            // مهم: پاسخ ممکن است JSON نباشد، پس اول متن خام
+            // را می‌خوانیم و بعد تلاش می‌کنیم پارسش کنیم.
+            const rawText = await res.text();
+            let data = null;
+
+            try {
+                data = rawText ? JSON.parse(rawText) : null;
+            } catch {
+                data = null;
+            }
 
             console.log(
                 "UPLOAD:",
-                data
+                res.status,
+                data || rawText
             );
 
             if (!res.ok) {
                 throw new Error(
-                    data.message ||
-                    "Upload failed"
+                    await readResponseError(res, rawText, data)
                 );
             }
 
-            setMessage(
+            showMessage(
                 "تصویر با موفقیت آپلود شد"
             );
 
@@ -143,8 +226,16 @@ export default function AdminCarImages({ carId }) {
                 error
             );
 
-            setMessage(
-                "آپلود تصویر ناموفق بود"
+            // خطای شبکه (سرور بالا نیست / CORS / قطع اینترنت)
+            // با خطای پاسخ سرور فرق دارد:
+            const reason =
+                error instanceof TypeError
+                    ? "سرور پاسخ نداد (خطای شبکه)"
+                    : error?.message || "خطای نامشخص";
+
+            showMessage(
+                "آپلود تصویر ناموفق بود: " + reason,
+                "error"
             );
         } finally {
             setUploading("");
@@ -178,11 +269,12 @@ export default function AdminCarImages({ carId }) {
 
             if (!res.ok) {
                 throw new Error(
-                    `Delete failed: ${res.status}`
+                    "Delete failed: " +
+                        (await readResponseError(res))
                 );
             }
 
-            setMessage(
+            showMessage(
                 "تصویر حذف شد"
             );
 
@@ -194,8 +286,10 @@ export default function AdminCarImages({ carId }) {
                 error
             );
 
-            setMessage(
-                "حذف تصویر ناموفق بود"
+            showMessage(
+                "حذف تصویر ناموفق بود: " +
+                    (error?.message || "خطای نامشخص"),
+                "error"
             );
         }
     };
@@ -374,6 +468,19 @@ export default function AdminCarImages({ carId }) {
                             "15px",
                     }}
                 >
+                    <div
+                        style={{
+                            fontSize:
+                                "11px",
+                            color:
+                                "#666",
+                            marginBottom:
+                                "6px",
+                        }}
+                    >
+                        حداکثر ۱۵ مگابایت — jpg, png, webp, gif
+                    </div>
+
                     <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp,image/gif"
@@ -417,6 +524,11 @@ export default function AdminCarImages({ carId }) {
 
             {message && (
                 <div
+                    role={
+                        messageType === "error"
+                            ? "alert"
+                            : "status"
+                    }
                     style={{
                         marginBottom:
                             "20px",
@@ -424,10 +536,22 @@ export default function AdminCarImages({ carId }) {
                             "12px 15px",
                         borderRadius:
                             "8px",
+                        whiteSpace:
+                            "pre-wrap",
+                        wordBreak:
+                            "break-word",
                         background:
-                            "#eef7ee",
+                            messageType === "error"
+                                ? "#fdecec"
+                                : "#eef7ee",
                         border:
-                            "1px solid #b8d8b8",
+                            messageType === "error"
+                                ? "1px solid #e5b4b4"
+                                : "1px solid #b8d8b8",
+                        color:
+                            messageType === "error"
+                                ? "#8a1f1f"
+                                : "#1f5c25",
                     }}
                 >
                     {message}
