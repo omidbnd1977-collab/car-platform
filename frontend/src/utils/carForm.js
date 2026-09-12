@@ -5,6 +5,9 @@
 // و هم تست‌ها از یک منبع استفاده کنند.
 // ------------------------------------------------------------
 
+// پسوند .js لازم است چون تست‌های node این فایل را مستقیم import می‌کنند (vite هر دو را می‌فهمد)
+import { normKey } from "./globalCatalog.js";
+
 export const YEAR_MIN = 1970;
 
 // کشورها به‌صورت لیست انتخابی‌اند تا تایپ دستی نباشد
@@ -67,16 +70,15 @@ export function clean(value) {
 
 // پیدا کردن آیتم کاتالوگ بدون حساسیت به بزرگی/کوچکی و فاصله
 export function findByName(list, name) {
-    const target = clean(name).toLowerCase();
+    const target = normKey(name);
 
     if (!target || !Array.isArray(list)) {
         return null;
     }
 
-    return (
-        list.find((item) => clean(item?.name).toLowerCase() === target) ||
-        null
-    );
+    // normKey فاصله/خط تیره/بزرگی و alias ها را یکی می‌کند، پس
+    // «Mercedes-Benz» همان «Mercedes» است و مدل‌هایش هم پیدا می‌شوند.
+    return list.find((item) => normKey(item?.name) === target) || null;
 }
 
 export function inCatalog(list, name) {
@@ -110,7 +112,10 @@ export function validateCarForm(form = {}, options = {}) {
     }
 
     if (!clean(form.model)) {
-        errors.model = "مدل را از لیست انتخاب کنید (اگر در لیست نیست، از بخش «افزودن به کاتالوگ» اضافه‌اش کنید).";
+        errors.model =
+            options.modelMode === "text"
+                ? "نام مدل را بنویس (لاتین، مثل F7 یا Tigor)."
+                : "مدل را از لیست انتخاب کنید (اگر برندی که انتخاب کردی مدل نداشت، همان‌جا تایپ کن).";
     }
 
     const year = toNumber(form.year);
@@ -286,15 +291,26 @@ export function mergeBrandsWithModels(brands, modelsByBrandId) {
     );
 }
 
-/** مدل‌های یک برند (بدون حساسیت به حروف). اگر برند پیدا نشد، همه را می‌دهد. */
+/** مدل‌های یک برند (با normKey، پس «land cruiser» ≠ برند). اگر برندی انتخاب
+نشده باشد فقط مدل‌های کاتالوگ (دیتابیس) برمی‌گردد — نه ۱۵۰۰ مدلِ لیست آماده. */
 export function modelsOfBrand(brands, brandName) {
-    const brand = findByName(brands, brandName);
+    const list = Array.isArray(brands) ? brands : [];
+    const brand = findByName(list, brandName);
 
     if (brand) {
         return brand.models;
     }
 
-    return brands.flatMap((item) => item.models);
+    return list
+        .flatMap((item) => item.models || [])
+        .filter((model) => model?.from_db !== false);
+}
+
+/** برند انتخاب‌شده هیچ مدلی ندارد؟ → فیلد مدل باید تایپی شود */
+export function needsFreeTextModel(brands, brandName) {
+    const brand = findByName(Array.isArray(brands) ? brands : [], brandName);
+
+    return Boolean(brand && !(brand.models || []).length);
 }
 
 /**
@@ -319,11 +335,21 @@ export function buildModelGroups(brands, brandName) {
         ];
     }
 
-    return brands
-        .filter((brand) => brand.models.length)
-        .map((brand) => ({
-            label: `${brand.name}${brand.cars_count ? ` (${brand.cars_count})` : ""}`,
-            options: brand.models.map((model) => ({
+    // برند انتخاب نشده: مدلِ همه‌ی برندها (۱۴۰۰+ گزینه، مرورگر راحت می‌برد) —
+    // قبلاً فقط مدل‌های دیتابیس بود و کاربر فکر می‌کرد برندها مدل ندارند.
+    // با انتخاب مدل، برند هم خودکار ست می‌شود (brandOfModel).
+    const source = (Array.isArray(brands) ? brands : []).map((brand) => ({
+        brand,
+        models: brand.models || [],
+    }));
+
+    return source
+        .filter((entry) => entry.models.length)
+        .map(({ brand, models }) => ({
+            label: `${brand.name}${brand.in_catalog ? "" : " (لیست آماده)"}${
+                brand.cars_count ? ` — ${brand.cars_count}` : ""
+            }`,
+            options: models.map((model) => ({
                 value: model.name,
                 label: model.name,
                 brandName: brand.name,

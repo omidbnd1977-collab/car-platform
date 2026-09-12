@@ -40,7 +40,7 @@ shipping_cost,
 customs_cost,
 description
 
-}=req.body;
+} = req.body || {};
 
 
 
@@ -766,7 +766,7 @@ const carId = req.params.carId;
 const {
     image_url,
     source_name
-} = req.body;
+} = req.body || {};
 
 
 
@@ -1289,7 +1289,14 @@ exports.reorderCarImages = async(req,res)=>{
 
 try{
 
-const { images } = req.body;
+const { images } = req.body || {};
+
+// اگر بدنه‌ی JSON نرسیده باشد (یا آرایه نباشد) ۴۰۰ می‌دهیم، نه ۵۰۰
+if (!Array.isArray(images)) {
+return res.status(400).json({
+error: "آرایه‌ی images لازم است (و هدر Content-Type: application/json)."
+});
+}
 
 const carId = req.params.carId;
 

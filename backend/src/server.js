@@ -16,6 +16,20 @@ const storageService = require("./services/storageService");
 const app = express();
 app.use(cors());
 app.use(express.json());
+// ------------------------------------------------------------
+// اگر بدنه‌ی JSON خوانده نشود (مثلاً درخواست بدون Content-Type
+// application/json) اکسپرس req.body را تعریف نمی‌کند و کنترلرها روی
+// `= req.body` می‌شکنند: «Cannot destructure property ... of 'req.body'
+// as it is undefined». این میدل‌ور یک {} خالی می‌گذارد تا کنترلر خودشان
+// با پیام فارسیِ «فیلد لازم است» جواب بدهند، نه ۵۰۰.
+// ------------------------------------------------------------
+app.use((req, res, next) => {
+    if (!req.body || typeof req.body !== "object") {
+        req.body = {};
+    }
+
+    next();
+});
 // ============================================================
 //  سرو فایل‌های آپلودی
 // ============================================================
