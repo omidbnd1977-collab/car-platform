@@ -1,4 +1,5 @@
 const db = require("../config/database");
+const storageService = require("../services/storageService");
 
 
 
@@ -712,31 +713,19 @@ await client.query("COMMIT");
 
 
 
-// delete physical file
+// delete physical file (local disk or S3/R2)
 
-if(
-imageUrl &&
-imageUrl.startsWith("/uploads/")
-){
+if(imageUrl){
 
-const fs = require("fs");
-const path = require("path");
+storageService.deleteFile(imageUrl)
+.catch(function (deleteError) {
 
+    console.log(
+        "IMAGE FILE DELETE ERROR:",
+        deleteError.message
+    );
 
-const filePath =
-path.join(
-process.cwd(),
-imageUrl
-);
-
-
-
-if(fs.existsSync(filePath)){
-
-fs.unlinkSync(filePath);
-
-}
-
+});
 
 }
 
@@ -1081,19 +1070,19 @@ FROM cars
 
 
 
-JOIN car_brands
+LEFT JOIN car_brands
 
 ON cars.brand_id = car_brands.id
 
 
 
-JOIN car_models
+LEFT JOIN car_models
 
 ON cars.model_id = car_models.id
 
 
 
-JOIN dealerships
+LEFT JOIN dealerships
 
 ON cars.dealership_id = dealerships.id
 
@@ -1240,19 +1229,19 @@ FROM cars
 
 
 
-JOIN car_brands
+LEFT JOIN car_brands
 
 ON cars.brand_id = car_brands.id
 
 
 
-JOIN car_models
+LEFT JOIN car_models
 
 ON cars.model_id = car_models.id
 
 
 
-JOIN dealerships
+LEFT JOIN dealerships
 
 ON cars.dealership_id = dealerships.id
 
@@ -1483,6 +1472,9 @@ error:error.message
 // =================================================
 
 exports.uploadCarImage = async (req, res) => {
+    let stored = null;
+    let oldImageUrlToPurge = null;
+
     try {
 
         const carId = req.params.carId;
@@ -1555,6 +1547,45 @@ exports.uploadCarImage = async (req, res) => {
 
 
         // -----------------------------------------
+        // ذخیره‌ی فایل توسط storageService
+        // -----------------------------------------
+        // چون multer با memoryStorage کار می‌کند، فایل هنوز
+        // فقط در حافظه است. اول ذخیره می‌کنیم تا اگر استورج
+        // (دیسک محلی یا S3/R2) خطا داد، رکورد قبلی از بین
+        // نرود و پاسخ خطای واقعی به فرانت‌اند برگردد.
+        // -----------------------------------------
+
+        try {
+
+            stored = await storageService.saveFile(
+                req.file,
+                {
+                    folder: storageService.DEFAULT_FOLDER
+                }
+            );
+
+        }
+        catch (storageError) {
+
+            console.log(
+                "STORAGE SAVE ERROR:",
+                storageError.message
+            );
+
+            return res.status(502).json({
+                error:
+                    "Could not save the image: " +
+                    storageError.message
+            });
+
+        }
+
+
+        const imageUrl =
+            stored.url;
+
+
+        // -----------------------------------------
         // Check if this view already exists
         // -----------------------------------------
 
@@ -1582,6 +1613,11 @@ exports.uploadCarImage = async (req, res) => {
 
             const oldImageId =
                 existingImage.rows[0].id;
+
+            // فایل نسخه‌ی قبلی فقط وقتی حذف می‌شود که
+            // آپلود جدید با موفقیت در دیتابیس ثبت شود.
+            oldImageUrlToPurge =
+                existingImage.rows[0].image_url;
 
 
             await db.query(
@@ -1636,14 +1672,6 @@ exports.uploadCarImage = async (req, res) => {
 
 
         // -----------------------------------------
-        // Image URL
-        // -----------------------------------------
-
-        const imageUrl =
-            `/uploads/cars/${req.file.filename}`;
-
-
-        // -----------------------------------------
         // Insert new image
         // -----------------------------------------
 
@@ -1683,6 +1711,25 @@ exports.uploadCarImage = async (req, res) => {
 
         const imageId =
             imageResult.rows[0].id;
+
+
+        // -----------------------------------------
+        // پاک‌سازی فایل نسخه‌ی قبلی
+        // -----------------------------------------
+        // حالا که رکورد جدید ثبت شده، فایل قدیمی (محلی یا
+        // داخل باکت) حذف می‌شود تا فایل یتیم نماند.
+        // -----------------------------------------
+
+        if (
+            oldImageUrlToPurge &&
+            oldImageUrlToPurge !== imageUrl
+        ) {
+
+            await storageService.deleteFile(
+                oldImageUrlToPurge
+            );
+
+        }
 
 
         // -----------------------------------------
@@ -1760,11 +1807,23 @@ exports.uploadCarImage = async (req, res) => {
             error.message
         );
 
+        // اگر فایل ذخیره شد ولی بعدش خطایی رخ داد،
+        // فایل یتیم را پاک می‌کنیم.
+        if (stored && stored.url) {
 
-        return res.status(500).json({
+            await storageService.deleteFile(
+                stored.url
+            );
+
+        }
+
+        return res.status(
+            error.status || 500
+        ).json({
 
             error:
-                error.message
+                error.message ||
+                "Image upload failed"
 
         });
 

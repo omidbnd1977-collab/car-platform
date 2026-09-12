@@ -11,12 +11,43 @@ const adminRoutes = require("./routes/adminRoutes");
 const publicRoutes = require("./routes/publicRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
 const multer = require("multer");
+const { MAX_FILE_SIZE_MB } = require("./middleware/upload");
+const storageService = require("./services/storageService");
 const app = express();
 app.use(cors());
 app.use(express.json());
+// ============================================================
+//  سرو فایل‌های آپلودی
+// ============================================================
+// ریشه و پیشوند /uploads از storageService گرفته می‌شود تا
+// مسیر دیسک فقط یک‌جا تعریف شود. در حالت
+// STORAGE_PROVIDER=s3|r2 فایل‌های جدید روی دامنه‌ی استورج
+// ذخیره و سرو می‌شوند و این میدل‌ور فقط به فایل‌های قدیمی
+// (legacy) روی دیسک پاسخ می‌دهد تا بعد از سوییچ کردن هم
+// تا زمان مایگرشن نشکنند.
+// ============================================================
+// لاگ شروع: روی Render (Log tab) فوراً مشخص می‌کند عکس‌ها
+// کجا ذخیره می‌شوند و اگر پیکربندی S3/R2 ناقص است همان‌جا
+// دیده شود، نه بعد از اولین آپلود ناموفق.
+const storageSummary = storageService.describe();
+console.log("STORAGE:", JSON.stringify(storageSummary));
+
+if (storageSummary.error) {
+    console.warn("STORAGE MISCONFIGURED:", storageSummary.error);
+}
+
+// در حالت محلی پوشه‌ی uploads را از قبل می‌سازیم تا اولین
+// آپلود به خاطر نبودِ پوشه شکست نخورد.
+if (storageService.servesLocalFiles()) {
+    storageService.ensureLocalDirs();
+}
+
 app.use(
-    "/uploads",
-    express.static("uploads")
+    storageService.getUrlPrefix(),
+    express.static(storageService.getLocalUploadsDir(), {
+        maxAge: "1d",
+        fallthrough: true,
+    })
 );
 // Routes
 app.use("/api/auth", authRoutes);
@@ -78,8 +109,21 @@ app.use((err, req, res, next) => {
 
     // خطاهای مخصوص multer (حجم فایل، فرمت غیرمجاز و...)
     if (err instanceof multer.MulterError) {
+        // LIMIT_FILE_SIZE را با ۴۱۳ برمی‌گردانیم تا فرانت‌اند
+        // بتواند «حجم فایل بیش از حد مجاز است» را نشان دهد.
+        if (err.code === "LIMIT_FILE_SIZE") {
+            return res.status(413).json({
+                error:
+                    "File too large. Maximum size is " +
+                    MAX_FILE_SIZE_MB +
+                    " MB.",
+                code: err.code,
+            });
+        }
+
         return res.status(400).json({
-            error: err.message
+            error: err.message,
+            code: err.code,
         });
     }
 

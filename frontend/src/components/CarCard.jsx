@@ -5,16 +5,51 @@ import dealerConfig from "../config/dealerConfig";
 const PLACEHOLDER_IMAGE =
     "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23e0e0e0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%23999999'%3ENo Image%3C/text%3E%3C/svg%3E";
 
+// ------------------------------------------------------------
+// انتخاب عکس کارت
+// ------------------------------------------------------------
+// قبلاً همیشه images[0] استفاده می‌شد، یعنی اولین ردیف
+// جدول car_images بر اساس sort_order؛ در نتیجه عکس داخلی یا
+// بغل خودرو به‌جای عکس اصلی انتخاب می‌شد.
+// حالا اولویت با عکس اصلی است:
+//   ۱) تصویری که is_primary = true دارد
+//   ۲) تصویری که id آن با cars.primary_image_id برابر است
+//   ۳) اگر هیچ‌کدام نبود، اولین عکس معتبر (رفتار قبلی)
+// ------------------------------------------------------------
+function isPrimaryFlag(value) {
+    return value === true || String(value).toLowerCase() === "true";
+}
+
+function getCardImageSource(car) {
+    const images = (Array.isArray(car?.images) ? car.images : []).filter(
+        (img) => img?.image_url
+    );
+
+    if (!images.length) {
+        return "";
+    }
+
+    const primary =
+        images.find((img) => isPrimaryFlag(img.is_primary)) ||
+        (car?.primary_image_id != null &&
+            images.find(
+                (img) => String(img.id) === String(car.primary_image_id)
+            )) ||
+        images[0];
+
+    return primary?.image_url || "";
+}
+
 function CarCard({
     car,
     onViewDetails,
     onContactRequest,
 }) {
-    const image =
-        car?.images?.length > 0 &&
-        car.images[0]?.image_url
-            ? getImageUrl(car.images[0].image_url)
-            : PLACEHOLDER_IMAGE;
+    const imageSource = getCardImageSource(car);
+
+    const image = imageSource
+        ? getImageUrl(imageSource)
+        : PLACEHOLDER_IMAGE;
 
     const brand =
         car?.brand_name ||
