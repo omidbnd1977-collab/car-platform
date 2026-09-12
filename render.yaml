@@ -1,0 +1,60 @@
+# تنظیمات دیپلوی روی Render (Blueprint).
+# این فایل فقط زمانی استفاده می‌شود که سرویس‌ها را به‌صورت Blueprint
+# بسازید؛ سرویس‌هایی که حالا به‌صورت دستی ساخته شده‌اند را تغییر نمی‌دهد
+# و صرفاً مستند تنظیمات درست است.
+services:
+  # ------------------------------------------------------------
+  # Backend (Node / Express)
+  # ------------------------------------------------------------
+  - type: web
+    name: car-platform-db
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: PORT
+        value: "5000"
+      - key: JWT_SECRET
+        sync: false
+      - key: SEARCHAPI_KEY
+        sync: false
+      # یا فقط DATABASE_URL را ست کنید (هر دو پشتیبانی می‌شود)
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+  # ------------------------------------------------------------
+  # Frontend (Static site / Vite)
+  # ------------------------------------------------------------
+  - type: web
+    name: car-platform
+    runtime: static
+    rootDir: frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    # برای SPA بودن سایت: همه‌ی مسیرها به index.html برمی‌گردند
+    # (فایل public/_redirects مخصوص Netlify است و روی Render کار نمی‌کند)
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: VITE_API_URL
+        value: https://car-platform-db.onrender.com/api
