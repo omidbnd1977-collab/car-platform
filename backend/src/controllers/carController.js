@@ -1,5 +1,6 @@
 const db = require("../config/database");
 const storageService = require("../services/storageService");
+const { resolveBrandAndModel } = require("../services/catalogService");
 
 
 
@@ -52,60 +53,12 @@ await client.query("BEGIN");
 // ============================
 console.log("BRAND RECEIVED:", brand);
 
-const brandResult = await client.query(
-`
-SELECT id,name
-FROM car_brands
-WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
-`,
-[
-    brand
-]
-);
-
-
-if(!brandResult.rows.length){
-
-    throw new Error(
-        "Brand not found: " + brand
-    );
-
-}
-
-
-const brandRow = brandResult.rows[0];
-
-
-
-// ============================
-// MODEL
-// ============================
-
-
-const modelResult = await client.query(
-`
-SELECT id,name,brand_id
-FROM car_models
-WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
-AND brand_id=$2
-`,
-[
+// اگر برند/مدل در کاتالوگ نباشد ساخته می‌شوند (find-or-create) تا
+// ثبت خودروی تازه هیچ‌وقت به خاطر «Brand not found» گیر نکند.
+const { brandRow, modelRow } = await resolveBrandAndModel(client, {
+    brand,
     model,
-    brandRow.id
-]
-);
-
-
-if(!modelResult.rows.length){
-
-    throw new Error(
-        "Model not found: " + model
-    );
-
-}
-
-
-const modelRow = modelResult.rows[0];
+});
 
 // ============================
 // DEALERSHIP
@@ -1386,82 +1339,355 @@ error:error.message
 // UPDATE CAR
 // =================================================
 
-exports.updateCar = async(req,res)=>{
+// ============================================================
+// UPDATE CAR   PUT /api/cars/:id
+// ============================================================
+// قبلاً فقط year/country/price/shipping/customs/description ویرایش
+// می‌شدند و brand/model در فرم ادمین فقط تزئینی بود. حالا:
+//  • brand/model (find-or-create در کاتالوگ)
+//  • dealership_name  (برای «بدون نمایندگی» رشته‌ی خالی بفرستید)
+//  • status  (ACTIVE / HIDDEN / …)
+// فیلدهای ارسال‌نشده دست‌نخورده می‌مانند (COALESCE).
+// ============================================================
 
-try{
+const UPDATABLE_STATUSES = [
+    "ACTIVE",
+    "HIDDEN",
+    "PENDING",
+    "APPROVED",
+    "REJECTED",
+];
 
-const carId = req.params.id;
+function numOrNothing(value) {
+    const raw = String(value == null ? "" : value)
+        .trim()
+        .replace(/[,_\s]/g, "");
 
-const {
-year,
-country,
-price_aed,
-shipping_cost,
-customs_cost,
-description
-}=req.body;
+    if (raw === "") {
+        return null;
+    }
 
+    const num = Number(raw);
 
-const result = await db.query(
-`
-UPDATE cars
-SET
-year = COALESCE($1,year),
-country = COALESCE($2,country),
-price_aed = COALESCE($3,price_aed),
-shipping_cost = COALESCE($4,shipping_cost),
-customs_cost = COALESCE($5,customs_cost),
-description = COALESCE($6,description)
-
-WHERE id=$7
-
-RETURNING *
-`,
-[
-year || null,
-country || null,
-price_aed || null,
-shipping_cost || null,
-customs_cost || null,
-description || null,
-carId
-]
-);
-
-
-if(result.rows.length===0){
-
-return res.status(404).json({
-message:"Car not found"
-});
-
+    return Number.isFinite(num) ? num : null;
 }
 
+exports.updateCar = async (req, res) => {
 
-res.json({
+const client = await db.connect();
 
-message:"Car updated",
+try {
 
-car:result.rows[0]
+    const carId = req.params.id;
+    const body = req.body || {};
 
-});
+    await client.query("BEGIN");
 
+    const current = await client.query(
+        "SELECT id, brand_id, model_id, dealership_id FROM cars WHERE id = $1",
+        [carId]
+    );
 
+    if (!current.rows.length) {
+
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+            error: "خودرو پیدا نشد (id: " + carId + ").",
+        });
+    }
+
+    const brandName = String(body.brand || "").trim();
+    const modelName = String(body.model || "").trim();
+
+    let brandRow = null;
+    let modelRow = null;
+
+    if (brandName || modelName) {
+
+        // اگر فقط مدل عوض شده باشد، برند فعلی خودرو نگه داشته می‌شود
+        if (!brandName) {
+
+            const currentBrand = await client.query(
+                "SELECT id, name FROM car_brands WHERE id = $1",
+                [current.rows[0].brand_id]
+            );
+
+            brandRow = currentBrand.rows[0] || null;
+        }
+
+        const resolved = await resolveBrandAndModel(client, {
+            brand: brandName,
+            model: modelName,
+            brandId: brandRow ? brandRow.id : null,
+        });
+
+        brandRow = resolved.brandRow;
+        modelRow = resolved.modelRow;
+    }
+
+    // نمایندگی: ارسال‌نشده = دست نزن، رشته‌ی خالی = حذف شد
+    let dealershipValue = null;
+
+    if (body.dealership_name !== undefined) {
+
+        const name = String(body.dealership_name || "").trim();
+
+        if (name) {
+
+            const dealership = await client.query(
+                `
+                SELECT id
+                FROM dealerships
+                WHERE LOWER(TRIM(name)) = LOWER($1)
+                LIMIT 1
+                `,
+                [name]
+            );
+
+            dealershipValue = dealership.rows.length
+                ? dealership.rows[0].id
+                : current.rows[0].dealership_id;
+        } else {
+
+            dealershipValue = -1; // sentinel → NULL
+        }
+    }
+
+    const statusValue = String(body.status || "").trim().toUpperCase();
+    const badStatus = statusValue && !UPDATABLE_STATUSES.includes(statusValue);
+
+    if (badStatus) {
+
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+            error: "وضعیت نامعتبر است. مجاز: " + UPDATABLE_STATUSES.join(" / "),
+        });
+    }
+
+    const result = await client.query(
+        `
+        UPDATE cars
+        SET
+            year = COALESCE($1, year),
+            country = COALESCE($2, country),
+            price_aed = COALESCE($3, price_aed),
+            shipping_cost = COALESCE($4, shipping_cost),
+            customs_cost = COALESCE($5, customs_cost),
+            description = COALESCE($6, description),
+            brand = COALESCE($7, brand),
+            brand_id = COALESCE($8, brand_id),
+            model = COALESCE($9, model),
+            model_id = COALESCE($10, model_id),
+            dealership_id = CASE
+                WHEN $11::int = -1 THEN NULL
+                ELSE COALESCE($11, dealership_id)
+            END,
+            status = COALESCE($12, status)
+        WHERE id = $13
+        RETURNING *
+        `,
+        [
+            numOrNothing(body.year),
+            String(body.country || "").trim() || null,
+            numOrNothing(body.price_aed),
+            numOrNothing(body.shipping_cost),
+            numOrNothing(body.customs_cost),
+            body.description === undefined ? null : String(body.description),
+            brandRow ? brandRow.name : null,
+            brandRow ? brandRow.id : null,
+            modelRow ? modelRow.name : null,
+            modelRow ? modelRow.id : null,
+            dealershipValue,
+            statusValue || null,
+            carId,
+        ]
+    );
+
+    await client.query("COMMIT");
+
+    if (!result.rows.length) {
+
+        return res.status(404).json({
+            error: "خودرو پیدا نشد (id: " + carId + ").",
+        });
+    }
+
+    return res.json({
+        message: "Car updated",
+        car: result.rows[0],
+        catalog: {
+            brand_created: Boolean(brandRow && brandRow.created),
+            model_created: Boolean(modelRow && modelRow.created),
+        },
+    });
+
+} catch (error) {
+
+    console.log("UPDATE ERROR:", error.message);
+
+    try {
+
+        await client.query("ROLLBACK");
+
+    } catch (rollbackError) {
+
+        console.log("UPDATE ROLLBACK ERROR:", rollbackError.message);
+    }
+
+    const status = Number(error.statusCode) || 500;
+
+    return res.status(status).json({
+        error: error.message,
+    });
+
+} finally {
+
+    if (client) {
+
+        client.release();
+    }
 }
-catch(error){
 
-console.log(
-"UPDATE ERROR:",
-error.message
-);
+};
 
 
-res.status(500).json({
+// ============================================================
+// DELETE CAR   DELETE /api/cars/:id
+// ============================================================
+// برای خودروهایی که اشتباهی ثبت شده‌اند. ترتیب کار:
+//  ۱) رکوردهای car_images و فایل‌هایشان (فایل‌ها فقط بعد از COMMIT)
+//  ۲) حذف خودِ خودرو
+// اگر جدول دیگری (مثلاً purchase_requests) به این خودرو وابسته
+// باشد، حذف فیزیکی ممکن نیست؛ در آن حالت خودرو «مخفی» می‌شود
+// (status=HIDDEN) تا از سایت برود ولی سوابق فروش نپرد.
+// ============================================================
 
-error:error.message
+exports.deleteCar = async (req, res) => {
 
-});
+const client = await db.connect();
 
+try {
+
+    const carId = req.params.id;
+
+    await client.query("BEGIN");
+
+    const car = await client.query(
+        "SELECT id, brand, model, year, primary_image_id FROM cars WHERE id = $1",
+        [carId]
+    );
+
+    if (!car.rows.length) {
+
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+            error: "خودرو پیدا نشد (id: " + carId + ").",
+        });
+    }
+
+    const images = await client.query(
+        "SELECT id, image_url FROM car_images WHERE car_id = $1",
+        [carId]
+    );
+
+    const imageUrls = images.rows
+        .map((image) => String(image.image_url || "").trim())
+        .filter(Boolean);
+
+    // primary_image_id به car_images ارجاع می‌دهد، پس اول آن را باز می‌کنیم
+    await client.query(
+        "UPDATE cars SET primary_image_id = NULL WHERE id = $1",
+        [carId]
+    );
+    await client.query("DELETE FROM car_images WHERE car_id = $1", [carId]);
+
+    let deletedRows = [];
+
+    try {
+
+        deletedRows = (
+            await client.query("DELETE FROM cars WHERE id = $1 RETURNING id", [carId])
+        ).rows;
+
+        await client.query("COMMIT");
+    } catch (deleteError) {
+
+        // وابستگی از جای دیگر (فروش/پیشنهاد) → حذف نکن، مخفی کن
+        if (deleteError && deleteError.code === "23503") {
+
+            await client.query("ROLLBACK");
+            await client.query("UPDATE cars SET status = 'HIDDEN' WHERE id = $1", [carId]);
+            await client.query("COMMIT");
+
+            return res.json({
+                ok: true,
+                id: Number(carId),
+                deleted: false,
+                soft_deleted: true,
+                message:
+                    "این خودرو به رکورد فروش وصل است و حذف فیزیکی نمی‌شود؛ " +
+                    "از سایت مخفی‌اش کردم (status=HIDDEN).",
+            });
+        }
+
+        throw deleteError;
+    }
+
+    // فایل‌ها best-effort (دیگر تراکنش تمام شده؛ خطایش حذف را برگرداندنی نیست)
+    await Promise.all(
+        imageUrls.map((url) =>
+            storageService.deleteFile(url).catch((fileError) => {
+                console.log("DELETE CAR FILE ERROR:", fileError.message);
+            })
+        )
+    );
+
+    const info = car.rows[0];
+
+    console.log(
+        "CAR DELETED:",
+        carId,
+        info.brand,
+        info.model,
+        info.year,
+        "images:",
+        imageUrls.length
+    );
+
+    return res.json({
+        ok: true,
+        id: Number(carId),
+        deleted: deletedRows.length > 0,
+        soft_deleted: false,
+        images_removed: imageUrls.length,
+        message: "خودرو حذف شد.",
+    });
+
+} catch (error) {
+
+    console.log("DELETE CAR ERROR:", error.message);
+
+    try {
+
+        await client.query("ROLLBACK");
+    } catch (rollbackError) {
+
+        console.log("DELETE CAR ROLLBACK ERROR:", rollbackError.message);
+    }
+
+    return res.status(500).json({
+        error: error.message,
+    });
+
+} finally {
+
+    if (client) {
+
+        client.release();
+    }
 }
 
 };

@@ -5,6 +5,12 @@ const adminController = require("../controllers/adminController");
 
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
+const adminGuard = require("../middleware/adminGuard");
+
+
+// وضعیت محافظ روت‌های نوشتنی — عمداً بدون احراز هویت است تا
+// پنل بتواند بگوید «ADMIN_API_KEY تنظیم نشده» و از کاربر رمز بخواهد.
+router.get("/status", adminGuard.guardStatus);
 
 
 // لیست خودروهای در انتظار تایید
