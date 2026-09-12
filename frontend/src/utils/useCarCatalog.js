@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiUrl } from "./apiBase";
 import { adminFetch, readError } from "./adminAuth";
+import { countReadyOnlyBrands, mergeGlobalCatalog } from "./globalCatalog";
 import {
     buildModelGroups,
     clean,
@@ -29,7 +30,7 @@ async function loadCatalog() {
             const brands = normalizeCatalogBrands(data?.brands);
 
             if (brands.length) {
-                return { brands, source: "full" };
+                return { brands: mergeGlobalCatalog(brands), source: "full" };
             }
         } catch {
             /* پاسخ JSON نبود (مثلاً صفحه‌ی خطای هاست) → مسیر legacy */
@@ -64,7 +65,10 @@ async function loadCatalog() {
 
     const byId = new Map(flat.map((brand, index) => [String(brand.id), lists[index]]));
 
-    return { brands: mergeBrandsWithModels(flat, byId), source: "legacy" };
+    return {
+        brands: mergeGlobalCatalog(mergeBrandsWithModels(flat, byId)),
+        source: "legacy",
+    };
 }
 
 export function useCarCatalog() {
@@ -124,12 +128,25 @@ export function useCarCatalog() {
         () =>
             brands.map((brand) => ({
                 value: brand.name,
-                label: `${brand.name}${brand.in_catalog ? "" : " (بدون کاتالوگ)"}`,
+                label: `${brand.name}${
+                    brand.is_global ? " (لیست آماده)" : brand.in_catalog ? "" : " (بدون کاتالوگ)"
+                }`,
             })),
         [brands]
     );
 
-    const allModels = useMemo(() => brands.flatMap((brand) => brand.models), [brands]);
+    // فقط مدل‌های کاتالوگ (دیتابیس) — لیست آماده ۱۵۰۰ مدل دارد و همه‌جا لازم نیست
+    const allModels = useMemo(
+        () =>
+            brands
+                .flatMap((brand) => brand.models || [])
+                .filter((model) => model?.from_db !== false),
+        [brands]
+    );
+
+    /** چند برند فقط از لیست آماده‌اند (هنوز در دیتابیس نیستند) */
+    const readyOnlyCount = useMemo(() => countReadyOnlyBrands(brands), [brands]);
+    const dbBrandCount = useMemo(() => brands.filter((brand) => brand?.id).length, [brands]);
 
     return {
         brands,
@@ -140,6 +157,8 @@ export function useCarCatalog() {
         dealershipState,
         error,
         brandOptions,
+        readyOnlyCount,
+        dbBrandCount,
         load,
         setBrands,
     };

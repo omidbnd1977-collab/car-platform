@@ -64,20 +64,47 @@ export function adminHeaders(extra = {}) {
     return headers;
 }
 
-/** برای fetch؛ بدنه‌ی JSON را هم همان‌جا می‌سازد. */
+/**
+ * برای fetch؛ بدنه‌ی JSON را هم همان‌جا می‌سازد.
+ *
+ * نکته‌ی مهم: Content-Type باید همیشه برای بدنه‌ی non-FormData فرستاده شود.
+ * اگر فراموش شود، express.json() در بک‌اند بدنه را نمی‌خواند و req.body
+ * تعریف‌نشده می‌ماند → «Cannot destructure property ... of 'req.body'».
+ * (فایل بدنه اینجا رشته‌ی JSON است، پس نمی‌شود فقط به typeof نگاه کرد.)
+ */
 export function adminFetch(url, options = {}) {
-    const isJsonBody = options.body != null && typeof options.body !== "string" && !(options.body instanceof FormData);
+    const isForm = typeof FormData !== "undefined" && options.body instanceof FormData;
+    const hasBody = options.body != null && !isForm;
+
+    const given = options.headers || {};
+    // فقط وقتی هیچ Content-Type‌ای ست نکرده‌اند JSON فرض می‌کنیم؛
+    // اگر خودشان چیزی فرستاده‌اند (مثلاً text/plain) دست نمی‌زنیم.
+    const wantsJson = hasBody && !hasContentType(given);
 
     const headers = adminHeaders({
-        ...(options.headers || {}),
-        ...(isJsonBody ? { "Content-Type": "application/json" } : {}),
+        ...given,
+        ...(wantsJson ? { "Content-Type": "application/json" } : {}),
     });
 
     return fetch(url, {
         ...options,
         headers,
-        body: isJsonBody ? JSON.stringify(options.body) : options.body,
+        // اگر از قبل رشته‌ی JSON فرستاده‌اند دست نمی‌زنیم، وگرنه همین‌جا می‌سازیم
+        body: hasBody && typeof options.body !== "string" ? JSON.stringify(options.body) : options.body,
     });
+}
+
+/** آیا caller خودش Content-Type ست کرده؟ (با هر بزرگی/کوچکی) */
+function hasContentType(headers = {}) {
+    if (typeof Headers !== "undefined" && headers instanceof Headers) {
+        return headers.get("content-type") != null;
+    }
+
+    if (Array.isArray(headers)) {
+        return headers.some(([key]) => String(key).toLowerCase() === "content-type");
+    }
+
+    return Object.keys(headers).some((key) => key.toLowerCase() === "content-type");
 }
 
 export function isUnauthorized(response) {

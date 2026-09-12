@@ -11,6 +11,7 @@ import {
     describeChange,
     dealershipLabel,
     modelsOfBrand,
+    needsFreeTextModel,
     validateCarForm,
 } from "../utils/carForm";
 import { CarFormFields, FormMessage } from "../components/admin/CarFormUI";
@@ -67,6 +68,8 @@ export default function EditCar({ car, back, onDeleted, onManageImages }) {
 
     const visibleModels = useMemo(() => modelsOfBrand(brands, form.brand), [brands, form.brand]);
 
+    const modelFreeText = useMemo(() => needsFreeTextModel(brands, form.brand), [brands, form.brand]);
+
     const modelGroups = useMemo(
         () => buildModelGroups(brands, clean(form.brand)),
         [brands, form.brand]
@@ -76,7 +79,9 @@ export default function EditCar({ car, back, onDeleted, onManageImages }) {
         () =>
             brands.map((brand) => ({
                 value: brand.name,
-                label: `${brand.name}${brand.in_catalog ? "" : " (بدون کاتالوگ)"}`,
+                label: `${brand.name}${
+                    brand.is_global ? " (لیست آماده)" : brand.in_catalog ? "" : " (بدون کاتالوگ)"
+                }`,
             })),
         [brands]
     );
@@ -115,7 +120,7 @@ export default function EditCar({ car, back, onDeleted, onManageImages }) {
     };
 
     const save = async () => {
-        const check = validateCarForm(form);
+        const check = validateCarForm(form, { modelMode: modelFreeText ? "text" : "select" });
 
         setErrors(check.errors);
 
@@ -260,6 +265,7 @@ export default function EditCar({ car, back, onDeleted, onManageImages }) {
                     }}
                     brandOptions={brandOptions}
                     modelGroups={modelGroups}
+                    modelFreeText={modelFreeText}
                     yearOptions={yearOptions}
                     countryOptions={countryOptions}
                     dealershipOptions={dealershipOptions}

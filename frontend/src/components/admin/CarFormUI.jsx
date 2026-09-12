@@ -127,6 +127,7 @@ export function CarFormFields({
     brandHint,
     catalogLoading,
     modelsLoading,
+    modelFreeText,
     dealershipAvailable,
     disabled,
     idPrefix = "addcar",
@@ -160,28 +161,55 @@ export function CarFormFields({
                 error={errors.brand}
             />
 
-            <SelectField
-                idPrefix={idPrefix}
-                name="model"
-                label="مدل"
-                value={form.model}
-                groups={modelGroups}
-                onChange={onChange}
-                disabled={disabled || modelsLoading}
-                placeholder={
-                    modelsLoading
-                        ? "در حال دریافت مدل‌ها…"
-                        : form.brand
-                          ? `— مدل‌های ${form.brand} —`
-                          : "— مدل همه‌ی برندها —"
-                }
-                hint={
-                    form.brand
-                        ? "اگر مدل در لیست نیست، از بخش «افزودن به کاتالوگ» اضافه‌اش کن."
-                        : "با انتخاب مدل، برند هم خودکار پر می‌شود."
-                }
-                error={errors.model}
-            />
+            {modelFreeText ? (
+                <FieldShell>
+                    <label htmlFor={`${idPrefix}-model`} style={labelStyle}>
+                        مدل
+                    </label>
+
+                    <input
+                        id={`${idPrefix}-model`}
+                        name="model"
+                        type="text"
+                        style={inputStyle}
+                        value={form.model}
+                        onChange={onChange}
+                        disabled={disabled}
+                        dir="ltr"
+                        placeholder="نام مدل را لاتین بنویس"
+                    />
+
+                    <div style={hintStyle}>
+                        این برند هنوز مدلی در کاتالوگ ندارد؛ همان‌جا بنویس — با ذخیره،
+                        مدل هم در کاتالوگ ساخته می‌شود و دفعه‌ی بعد در لیست است.
+                    </div>
+
+                    {errors.model && <div style={errorTextStyle}>{errors.model}</div>}
+                </FieldShell>
+            ) : (
+                <SelectField
+                    idPrefix={idPrefix}
+                    name="model"
+                    label="مدل"
+                    value={form.model}
+                    groups={modelGroups}
+                    onChange={onChange}
+                    disabled={disabled || modelsLoading}
+                    placeholder={
+                        modelsLoading
+                            ? "در حال دریافت مدل‌ها…"
+                            : form.brand
+                              ? `— مدل‌های ${form.brand} —`
+                              : "— مدل همه‌ی برندها —"
+                    }
+                    hint={
+                        form.brand
+                            ? `مدل‌های ${form.brand} از کاتالوگ و لیست آماده‌ی بازار است.`
+                            : "با انتخاب مدل، برند هم خودکار پر می‌شود."
+                    }
+                    error={errors.model}
+                />
+            )}
 
             <SelectField
                 idPrefix={idPrefix}

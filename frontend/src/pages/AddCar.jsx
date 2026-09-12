@@ -11,6 +11,7 @@ import {
     dealershipLabel,
     inputStyle,
     modelsOfBrand,
+    needsFreeTextModel,
     summarizeUploads,
     validateCarForm,
 } from "../utils/carForm";
@@ -63,6 +64,8 @@ export default function AddCar({ back, onCreated }) {
         dealershipState,
         error: catalogLoadError,
         brandOptions,
+        readyOnlyCount,
+        dbBrandCount,
         load: reloadCatalog,
     } = useCarCatalog();
 
@@ -74,6 +77,9 @@ export default function AddCar({ back, onCreated }) {
     );
 
     const visibleModels = useMemo(() => modelsOfBrand(brands, form.brand), [brands, form.brand]);
+
+    // برندی که هیچ مدلی ندارد (مثلاً تازه به کاتالوگ اضافه شده) → فیلد مدل تایپی می‌شود
+    const modelFreeText = useMemo(() => needsFreeTextModel(brands, form.brand), [brands, form.brand]);
 
     // تا وقتی برند انتخاب نشده، مدلِ «همه‌ی برندها» گروه‌بندی‌شده نشان داده
     // می‌شود و با انتخاب مدل، برند هم خودکار پر می‌شود.
@@ -184,7 +190,7 @@ export default function AddCar({ back, onCreated }) {
     // ثبت خودرو
     // ---------------------------------------
     const save = async () => {
-        const check = validateCarForm(form);
+        const check = validateCarForm(form, { modelMode: modelFreeText ? "text" : "select" });
 
         setErrors(check.errors);
 
@@ -329,14 +335,15 @@ export default function AddCar({ back, onCreated }) {
                     }}
                     brandOptions={brandOptions}
                     modelGroups={modelGroups}
+                    modelFreeText={modelFreeText}
                     yearOptions={yearOptions}
                     countryOptions={countryOptions}
                     dealershipOptions={dealershipOptions}
                     brandCount={brands.length}
                     brandHint={
                         catalogSource === "legacy"
-                            ? `${brands.length} برند از API قدیمی — برای «افزودن به کاتالوگ» و حذف خودرو، بک‌اند را هم دیپلوی کن`
-                            : ""
+                            ? `${dbBrandCount} برند از API قدیمی + ${readyOnlyCount} برند از لیست آماده — برای «افزودن به کاتالوگ» و حذف خودرو، بک‌اند را هم دیپلوی کن`
+                            : `همه‌ی برندهای بازار: ${dbBrandCount} برند کاتالوگ + ${readyOnlyCount} برند آماده (مدل‌های پرفروش هم داخل لیست است)`
                     }
                     catalogLoading={catalogState === "loading"}
                     dealershipAvailable={dealershipState !== "unavailable" && dealerships.length > 0}
