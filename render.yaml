@@ -59,6 +59,18 @@ services:
         sync: false
       - key: S3_KEY_PREFIX
         sync: false
+      # ------------------------------------------------------------
+      # محافظ روت‌های نوشتنی (backend/src/middleware/adminGuard.js)
+      # ------------------------------------------------------------
+      # تا وقتی این متغیر ست نشود، POST/PUT/DELETEهای /api/cars،
+      # /api/catalog/brands، /api/catalog/models و POST /api/dealerships
+      # برای همه باز است (پنل ادمین هم رمز نمی‌خواهد). با ست‌کردن یک
+      # رشته‌ی طولانی، همان روت‌ها به هدر x-admin-key یا توکن ادمین
+      # نیازمند می‌شوند و پنل /admin از کاربر رمز می‌پرسد.
+      # GETها (لیست خودروها و کاتالوگ) عمداً باز می‌مانند.
+      - key: ADMIN_API_KEY
+        sync: false
+        secret: true
 
   # ------------------------------------------------------------
   # Frontend (Static site / Vite)
@@ -81,3 +93,7 @@ services:
         value: "22"
       - key: VITE_API_URL
         value: https://car-platform-db.onrender.com/api
+      # slug مشتری/قالب این سرویس (frontend/src/config/tenants/*).
+      # خالی = qeshm (پیش‌فرض). راهنما: docs/tenants.md
+      - key: VITE_TENANT
+        sync: false

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { getImageUrl } from "../../utils/imageUrl";
+import { adminHeaders } from "../../utils/adminAuth";
 
 const API =
     import.meta.env.VITE_API_URL ||
@@ -185,6 +186,9 @@ export default function AdminCarImages({ carId }) {
                 `${API}/cars/${carId}/images/upload`,
                 {
                     method: "POST",
+                    // اگر ADMIN_API_KEY روی سرور ست شده باشد، آپلود
+                    // بدون این هدر با ۴۰۱ رد می‌شود.
+                    headers: adminHeaders(),
                     body: formData,
                 }
             );
@@ -264,6 +268,7 @@ export default function AdminCarImages({ carId }) {
                 `${API}/cars/${carId}/images/${imageId}`,
                 {
                     method: "DELETE",
+                    headers: adminHeaders(),
                 }
             );
 
