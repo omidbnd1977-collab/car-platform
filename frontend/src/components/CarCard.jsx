@@ -234,6 +234,7 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
 
                             fontSize: "19px",
                             lineHeight: 1.35,
+
                             color: "#111",
                             fontWeight: 800,
 
@@ -281,89 +282,24 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                         </span>
                     </div>
 
-                    {/* ACTIONS — فقط بخش پایین کارت (مطابق عکس کارفرما) */}
-                    {/* شامل: دکمه «مشاهده جزئیات» + دکمه آبی «تماس / درخواست بازدید» — در یک ردیف، پایین کارت */}
+                    {/* ACTIONS — یک دکمه‌ی یکپارچه با دو قسمت (سفید با متن طلایی شامپاینی) */}
 
                     <div
                         style={{
                             marginTop: "auto",
 
                             display: "flex",
-                            flexDirection: "row",
                             alignItems: "stretch",
-                            justifyContent: "center",
-                            flexWrap: "wrap",
-                            gap: "10px",
+
+                            border: "1.5px solid rgba(212,175,55,0.55)",
+                            borderRadius: "999px",
+                            overflow: "hidden",
+                            background: "#ffffff",
 
                             textAlign: "center",
                         }}
                     >
-                        {/* VIEW DETAILS */}
-
-                        <button
-                            type="button"
-                            onClick={handleViewDetails}
-                            aria-label={`مشاهده جزئیات ${title}`}
-
-                            style={{
-                                flex: "1 1 160px",
-                                minWidth: 0,
-
-                                padding: "13px 12px",
-
-                                border: "1.5px solid #1d63f0",
-                                borderRadius: "999px",
-
-                                background: "#ffffff",
-                                color: "#1d63f0",
-
-                                cursor: "pointer",
-
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "3px",
-
-                                transition: "background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease",
-                            }}
-
-                            onMouseEnter={(event) => {
-                                event.currentTarget.style.background = "#f0f5ff";
-                                event.currentTarget.style.transform = "translateY(-2px)";
-                                event.currentTarget.style.boxShadow = "0 8px 22px rgba(29,99,240,0.18)";
-                            }}
-
-                            onMouseLeave={(event) => {
-                                event.currentTarget.style.background = "#ffffff";
-                                event.currentTarget.style.transform = "translateY(0)";
-                                event.currentTarget.style.boxShadow = "none";
-                            }}
-                        >
-                            <span
-                                style={{
-                                    fontFamily: "Tahoma, Arial, sans-serif",
-                                    fontSize: "13px",
-                                    fontWeight: 800,
-                                    lineHeight: 1.3,
-                                }}
-                            >
-                                مشاهده جزئیات
-                            </span>
-
-                            <span
-                                style={{
-                                    fontSize: "9px",
-                                    fontWeight: 700,
-                                    letterSpacing: "1.4px",
-                                    color: "rgba(29,99,240,0.75)",
-                                }}
-                            >
-                                VIEW DETAILS
-                            </span>
-                        </button>
-
-                        {/* CONTACT / VISIT REQUEST — دکمه آبی پایین (مطابق عکس) */}
+                        {/* قسمت اول: درخواست بازدید */}
 
                         <button
                             type="button"
@@ -373,81 +309,94 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                             dir="rtl"
 
                             style={{
-                                flex: "1 1 160px",
+                                flex: "1 1 0",
                                 minWidth: 0,
 
-                                padding: "13px 16px",
+                                padding: "13px 8px",
 
                                 border: "none",
-                                borderRadius: "999px",
-
-                                background: "linear-gradient(135deg, #1d63f0 0%, #0b4bd6 100%)",
-                                color: "#ffffff",
+                                background: "#ffffff",
+                                color: "#a97f2f",
 
                                 cursor: "pointer",
 
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "8px",
+                                fontFamily: "Tahoma, Arial, sans-serif",
+                                fontSize: "13px",
+                                fontWeight: 800,
+                                lineHeight: 1.3,
 
-                                transition: "transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+
+                                transition: "background 0.3s ease",
                             }}
 
                             onMouseEnter={(event) => {
-                                event.currentTarget.style.transform = "translateY(-2px)";
-                                event.currentTarget.style.boxShadow = "0 10px 26px rgba(20,80,220,0.35)";
-                                event.currentTarget.style.filter = "brightness(1.05)";
+                                event.currentTarget.style.background = "#faf5e6";
                             }}
 
                             onMouseLeave={(event) => {
-                                event.currentTarget.style.transform = "translateY(0)";
-                                event.currentTarget.style.boxShadow = "none";
-                                event.currentTarget.style.filter = "brightness(1)";
+                                event.currentTarget.style.background = "#ffffff";
                             }}
                         >
-                            {/* PHONE ICON */}
+                            درخواست بازدید
+                        </button>
 
-                            <span
-                                aria-hidden="true"
-                                style={{
-                                    flex: "0 0 auto",
+                        {/* خط جداکننده‌ی دو قسمت */}
 
-                                    width: "30px",
-                                    height: "30px",
+                        <span
+                            aria-hidden="true"
+                            style={{
+                                width: "1px",
+                                alignSelf: "stretch",
+                                margin: "9px 0",
+                                background: "rgba(169,127,47,0.35)",
+                            }}
+                        />
 
-                                    borderRadius: "50%",
-                                    background: "#ffffff",
+                        {/* قسمت دوم: مشاهده جزئیات */}
 
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}
-                            >
-                                <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="#1d63f0"
-                                >
-                                    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
-                                </svg>
-                            </span>
+                        <button
+                            type="button"
+                            onClick={handleViewDetails}
+                            aria-label={`مشاهده جزئیات ${title}`}
 
-                            <span
-                                style={{
-                                    fontFamily: "Tahoma, Arial, sans-serif",
-                                    fontSize: "13px",
-                                    fontWeight: 800,
-                                    lineHeight: 1.3,
+                            dir="rtl"
 
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                }}
-                            >
-                                تماس / درخواست بازدید
-                            </span>
+                            style={{
+                                flex: "1 1 0",
+                                minWidth: 0,
+
+                                padding: "13px 8px",
+
+                                border: "none",
+                                background: "#ffffff",
+                                color: "#a97f2f",
+
+                                cursor: "pointer",
+
+                                fontFamily: "Tahoma, Arial, sans-serif",
+                                fontSize: "13px",
+                                fontWeight: 800,
+                                lineHeight: 1.3,
+
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+
+                                transition: "background 0.3s ease",
+                            }}
+
+                            onMouseEnter={(event) => {
+                                event.currentTarget.style.background = "#faf5e6";
+                            }}
+
+                            onMouseLeave={(event) => {
+                                event.currentTarget.style.background = "#ffffff";
+                            }}
+                        >
+                            مشاهده جزئیات
                         </button>
                     </div>
                 </div>
