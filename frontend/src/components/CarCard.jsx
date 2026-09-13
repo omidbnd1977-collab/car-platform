@@ -280,16 +280,20 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                         </span>
                     </div>
 
-                    {/* ACTIONS */}
+                    {/* ACTIONS — فقط بخش پایین کارت (مطابق عکس کارفرما) */}
+                    {/* شامل: دکمه «مشاهده جزئیات» + دکمه آبی «تماس / درخواست بازدید» — همه وسط‌چین */}
 
                     <div
                         style={{
-                            display: "grid",
-                            gridTemplateColumns:
-                                "repeat(auto-fit, minmax(150px, 1fr))",
-                            gap: "9px",
-
                             marginTop: "auto",
+
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "12px",
+
+                            textAlign: "center",
                         }}
                     >
                         {/* VIEW DETAILS */}
@@ -302,13 +306,13 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                             style={{
                                 width: "100%",
 
-                                padding: "12px 12px",
+                                padding: "11px 12px",
 
-                                border: "1px solid #111",
-                                borderRadius: "10px",
+                                border: "1.5px solid #1d63f0",
+                                borderRadius: "999px",
 
-                                background: "#111",
-                                color: "#fff",
+                                background: "#ffffff",
+                                color: "#1d63f0",
 
                                 cursor: "pointer",
 
@@ -318,22 +322,18 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                                 justifyContent: "center",
                                 gap: "3px",
 
-                                transition:
-                                    "background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease",
+                                transition: "background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease",
                             }}
 
                             onMouseEnter={(event) => {
-                                event.currentTarget.style.background = "#2a2a2a";
-                                event.currentTarget.style.transform =
-                                    "translateY(-2px)";
-                                event.currentTarget.style.boxShadow =
-                                    "0 8px 22px rgba(0,0,0,0.18)";
+                                event.currentTarget.style.background = "#f0f5ff";
+                                event.currentTarget.style.transform = "translateY(-2px)";
+                                event.currentTarget.style.boxShadow = "0 8px 22px rgba(29,99,240,0.18)";
                             }}
 
                             onMouseLeave={(event) => {
-                                event.currentTarget.style.background = "#111";
-                                event.currentTarget.style.transform =
-                                    "translateY(0)";
+                                event.currentTarget.style.background = "#ffffff";
+                                event.currentTarget.style.transform = "translateY(0)";
                                 event.currentTarget.style.boxShadow = "none";
                             }}
                         >
@@ -353,82 +353,123 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                                     fontSize: "9px",
                                     fontWeight: 700,
                                     letterSpacing: "1.4px",
-                                    color: "rgba(255,255,255,0.65)",
+                                    color: "rgba(29,99,240,0.75)",
                                 }}
                             >
                                 VIEW DETAILS
                             </span>
                         </button>
 
-                        {/* CONTACT / VISIT REQUEST */}
+                        {/* CONTACT / VISIT REQUEST — دکمه آبی پایین (مطابق عکس) */}
 
                         <button
                             type="button"
                             onClick={handleContactRequest}
                             aria-label={`درخواست بازدید یا تماس برای ${title}`}
 
+                            dir="rtl"
+
                             style={{
                                 width: "100%",
 
-                                padding: "12px 12px",
+                                padding: "13px 16px",
 
-                                border: "1px solid #c9a45c",
-                                borderRadius: "10px",
+                                border: "none",
+                                borderRadius: "999px",
 
-                                background:
-                                    "linear-gradient(135deg, #c9a45c, #a9823f)",
-
-                                color: "#fff",
+                                background: "linear-gradient(135deg, #1d63f0 0%, #0b4bd6 100%)",
+                                color: "#ffffff",
 
                                 cursor: "pointer",
 
                                 display: "flex",
-                                flexDirection: "column",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                gap: "3px",
+                                gap: "12px",
 
-                                transition:
-                                    "transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease",
+                                transition: "transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease",
                             }}
 
                             onMouseEnter={(event) => {
-                                event.currentTarget.style.transform =
-                                    "translateY(-2px)";
-                                event.currentTarget.style.boxShadow =
-                                    "0 9px 25px rgba(169,130,63,0.30)";
-                                event.currentTarget.style.filter =
-                                    "brightness(1.06)";
+                                event.currentTarget.style.transform = "translateY(-2px)";
+                                event.currentTarget.style.boxShadow = "0 10px 26px rgba(20,80,220,0.35)";
+                                event.currentTarget.style.filter = "brightness(1.05)";
                             }}
 
                             onMouseLeave={(event) => {
-                                event.currentTarget.style.transform =
-                                    "translateY(0)";
+                                event.currentTarget.style.transform = "translateY(0)";
                                 event.currentTarget.style.boxShadow = "none";
-                                event.currentTarget.style.filter =
-                                    "brightness(1)";
+                                event.currentTarget.style.filter = "brightness(1)";
                             }}
                         >
+                            {/* PHONE ICON */}
+
                             <span
+                                aria-hidden="true"
                                 style={{
-                                    fontFamily: "Tahoma, Arial, sans-serif",
-                                    fontSize: "13px",
-                                    fontWeight: 800,
-                                    lineHeight: 1.3,
+                                    flex: "0 0 auto",
+
+                                    width: "30px",
+                                    height: "30px",
+
+                                    borderRadius: "50%",
+                                    background: "#ffffff",
+
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
                                 }}
                             >
-                                درخواست بازدید / تماس
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="#1d63f0"
+                                >
+                                    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+                                </svg>
                             </span>
 
                             <span
                                 style={{
-                                    fontSize: "9px",
-                                    fontWeight: 700,
-                                    letterSpacing: "1.4px",
-                                    color: "rgba(255,255,255,0.75)",
+                                    fontFamily: "Tahoma, Arial, sans-serif",
+                                    fontSize: "14px",
+                                    fontWeight: 800,
+                                    lineHeight: 1.3,
+
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
                                 }}
                             >
-                                REQUEST A VISIT
+                                تماس / درخواست بازدید
+                            </span>
+
+                            {/* ARROW */}
+
+                            <span
+                                aria-hidden="true"
+                                style={{
+                                    flex: "0 0 auto",
+
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                }}
+                            >
+                                <svg
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="#ffffff"
+                                    strokeWidth="2.4"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <line x1="4" y1="12" x2="20" y2="12" />
+                                    <polyline points="13 5 20 12 13 19" />
+                                </svg>
                             </span>
                         </button>
                     </div>
