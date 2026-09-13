@@ -7,12 +7,12 @@
 // ------------------------------------------------------------
 
 import { baseDealerConfig } from "./base";
-import { qeshmTenant } from "./qeshm";
+import { qeshmTenant } from "./qeshm";import { smartbrandcarTenant } from "./smartbrandcar";
 import { resolveTenantSlug, buildTenantConfig } from "./resolve";
 
 export const tenants = {
     base: {},
-    qeshm: qeshmTenant,
+    qeshm: qeshmTenant,smartbrandcar: smartbrandcarTenant,
 };
 
 export const DEFAULT_TENANT = "qeshm";
