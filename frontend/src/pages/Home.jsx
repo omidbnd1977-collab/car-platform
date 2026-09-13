@@ -19,10 +19,6 @@ const [maxPrice, setMaxPrice] = useState("");
 const [selectedCar, setSelectedCar] = useState(null);
 
 const handleViewDetails = (car) => {
-    console.log("========== FULL CAR DATA ==========");
-    console.log(JSON.stringify(car, null, 2));
-    console.log("===================================");
-
     setSelectedCar(car);
 };
 
