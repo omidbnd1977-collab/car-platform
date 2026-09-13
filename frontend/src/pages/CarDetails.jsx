@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { getImageUrl } from "../utils/imageUrl";
 import dealerConfig from "../config/dealerConfig";
+import ContactModal from "../components/ContactModal";
 
 const PLACEHOLDER_IMAGE =
     "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23e0e0e0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%23999999'%3ENo Image%3C/text%3E%3C/svg%3E";
 
 function CarDetails({ car, onBack }) {
     const [language, setLanguage] = useState("fa");
+    const [contactOpen, setContactOpen] = useState(false);
 
     const isFa = language === "fa";
 
@@ -21,7 +23,11 @@ function CarDetails({ car, onBack }) {
               rear: "عقب",
               interior: "داخل کابین",
               price: "قیمت",
+              priceNote: "قیمت شامل هزینه لندیکرافت از مبدأ می‌باشد",
+              requestVisit: "درخواست بازدید / تماس",
+              whatsapp: "درخواست در واتساپ",
               location: "موقعیت",
+              origin: "کشور مبدأ",
               dealer: "نمایندگی / فروشنده",
               status: "وضعیت",
               brand: "برند",
@@ -49,7 +55,11 @@ function CarDetails({ car, onBack }) {
               rear: "REAR",
               interior: "INTERIOR",
               price: "PRICE",
+              priceNote: "Price includes landed cost from origin.",
+              requestVisit: "REQUEST A VISIT",
+              whatsapp: "WHATSAPP REQUEST",
               location: "LOCATION",
+              origin: "ORIGIN COUNTRY",
               dealer: "DEALER",
               status: "STATUS",
               brand: "BRAND",
@@ -184,6 +194,41 @@ const [activeImage, setActiveImage] =
         String(car?.status || "").toUpperCase() === "ACTIVE"
             ? labels.active
             : car?.status || "-";
+
+    // ------------------------------------------------------------
+    // اطلاعاتی که از کارت هوم برداشته شد و این‌جا نمایش داده می‌شود
+    // ------------------------------------------------------------
+    // شهر/کشور: اول مقدار خودِ خودرو (اگر API داده باشد)، بعد تنظیمات
+    // مشتری (config/tenants/*).
+    const carCity = String(car?.city || "").trim();
+    const carCountry = String(car?.country || "").trim();
+
+    const locationValue =
+        carCity ||
+        (isFa ? dealerConfig.cityFa : dealerConfig.cityEn) ||
+        dealerConfig.city ||
+        "-";
+
+    const originValue =
+        carCountry ||
+        (isFa ? dealerConfig.countryFa : dealerConfig.countryEn) ||
+        dealerConfig.country ||
+        "-";
+
+    const whatsappNumber = String(dealerConfig.whatsapp || "").replace(
+        /[^\d]/g,
+        ""
+    );
+
+    const whatsappMessage = `سلام، برای خودروی ${brand} ${model}${
+        car?.year ? ` مدل ${car.year}` : ""
+    }${car?.id ? ` (کد ${car.id})` : ""} درخواست بازدید / تماس دارم.`;
+
+    const whatsappHref = whatsappNumber
+        ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+              whatsappMessage
+          )}`
+        : "";
 
     const direction = isFa ? "rtl" : "ltr";
 
@@ -579,6 +624,92 @@ const [activeImage, setActiveImage] =
                                     {dealerConfig.currency}
                                 </span>
                             </div>
+
+                            {/* NOTE — این توضیح از کارت هوم به این‌جا منتقل شد */}
+
+                            <div
+                                style={{
+                                    marginTop: "9px",
+                                    color: "#8f8f8f",
+                                    fontSize: isFa ? "13px" : "11px",
+                                    fontWeight: 700,
+                                    lineHeight: 1.9,
+                                }}
+                            >
+                                {labels.priceNote}
+                            </div>
+
+                            {/* VISIT / CONTACT ACTIONS */}
+
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns:
+                                        "repeat(auto-fit, minmax(150px, 1fr))",
+                                    gap: "10px",
+                                    marginTop: "18px",
+                                }}
+                            >
+                                <a
+                                    href={whatsappHref || undefined}
+                                    target={whatsappHref ? "_blank" : undefined}
+                                    rel={whatsappHref ? "noreferrer" : undefined}
+
+                                    onClick={(event) => {
+                                        if (!whatsappHref) {
+                                            event.preventDefault();
+                                            setContactOpen(true);
+                                        }
+                                    }}
+
+                                    style={{
+                                        display: "block",
+                                        padding: "14px 12px",
+
+                                        textAlign: "center",
+                                        textDecoration: "none",
+
+                                        border: "1px solid #c9a45c",
+                                        borderRadius: "11px",
+
+                                        background:
+                                            "linear-gradient(135deg, #c9a45c, #a9823f)",
+
+                                        color: "#fff",
+                                        fontSize: isFa ? "14px" : "12px",
+                                        fontWeight: 900,
+
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    {labels.whatsapp}
+                                </a>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setContactOpen(true)}
+
+                                    style={{
+                                        padding: "14px 12px",
+
+                                        border: "1px solid rgba(255,255,255,0.18)",
+                                        borderRadius: "11px",
+
+                                        background: "#fff",
+                                        color: "#0a0a0a",
+
+                                        fontSize: isFa ? "14px" : "12px",
+                                        fontWeight: 900,
+                                        fontFamily: isFa
+                                            ? "Tahoma, Arial, sans-serif"
+                                            : "Arial, Helvetica, sans-serif",
+
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    {labels.requestVisit}
+                                </button>
+                            </div>
                         </div>
 
                         {/* BASIC INFO */}
@@ -593,11 +724,13 @@ const [activeImage, setActiveImage] =
                         >
                             <Info
                                 label={labels.location}
-                               value={
-    isFa
-        ? `${dealerConfig.cityFa}, ${dealerConfig.countryFa}`
-        : `${dealerConfig.cityEn}, ${dealerConfig.countryEn}`
-}
+                                value={locationValue}
+                                isFa={isFa}
+                            />
+
+                            <Info
+                                label={labels.origin}
+                                value={originValue}
                                 isFa={isFa}
                             />
 
@@ -715,11 +848,13 @@ const [activeImage, setActiveImage] =
 
                         <DetailRow
                             label={labels.location}
-                          value={
-    isFa
-        ? `${dealerConfig.cityFa}, ${dealerConfig.countryFa}`
-        : `${dealerConfig.cityEn}, ${dealerConfig.countryEn}`
-}
+                            value={locationValue}
+                            isFa={isFa}
+                        />
+
+                        <DetailRow
+                            label={labels.origin}
+                            value={originValue}
                             isFa={isFa}
                         />
 
@@ -838,6 +973,15 @@ const [activeImage, setActiveImage] =
                     </div>
                 </section>
             </div>
+
+            {/* VISIT / CONTACT MODAL */}
+
+            {contactOpen ? (
+                <ContactModal
+                    car={car}
+                    onClose={() => setContactOpen(false)}
+                />
+            ) : null}
         </div>
     );
 }
