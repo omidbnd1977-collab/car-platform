@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>فرم فروش پنل — ساخت فایل مشتری</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; min-height: 100vh; padding: 30px 18px;
+        background:
+            radial-gradient(900px 400px at 50% -10%, rgba(212,175,55,0.12), transparent 60%),
+            linear-gradient(180deg, #060606, #0a0a0a);
+        color: #fff; font-family: Tahoma, Arial, sans-serif;
+    }
+    .wrap { max-width: 860px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 24px; margin: 8px 0 4px;
+        background: linear-gradient(120deg, #f9e9a0, #d4af37 45%, #a97f2f);
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .sub { text-align: center; color: #9b8f76; font-size: 13px; margin-bottom: 26px; line-height: 1.9; }
+    .card {
+        background: linear-gradient(165deg, rgba(255,255,255,0.055), rgba(255,255,255,0.014) 45%, rgba(212,175,55,0.07));
+        border: 1px solid rgba(212,175,55,0.25); border-radius: 20px; padding: 24px; margin-bottom: 18px;
+    }
+    .card h2 { color: #e9d28c; font-size: 17px; margin: 0 0 14px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    label { display: block; color: #b9b09a; font-size: 12px; margin-bottom: 5px; }
+    input[type=text], input[type=email] {
+        width: 100%; padding: 11px 12px; border-radius: 10px;
+        border: 1px solid rgba(212,175,55,0.3); background: rgba(0,0,0,0.4);
+        color: #f0e6c8; font-size: 14px; font-family: inherit;
+    }
+    input:focus { outline: none; border-color: #d4af37; }
+    input[type=color] { width: 60px; height: 38px; border: none; background: none; cursor: pointer; }
+    .full { grid-column: 1 / -1; }
+    .checks { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; }
+    .checks label { display: flex; align-items: center; gap: 7px; color: #d9cfae; font-size: 13px; margin: 0; cursor: pointer; }
+    textarea {
+        width: 100%; height: 300px; direction: ltr; text-align: left;
+        background: #0d0c0a; color: #cfe3a3; border: 1px solid rgba(212,175,55,0.3);
+        border-radius: 12px; padding: 12px; font-family: Consolas, monospace;
+        font-size: 12px; white-space: pre; resize: vertical;
+    }
+    textarea.small { height: 130px; }
+    .btn {
+        display: inline-block; text-align: center; cursor: pointer; text-decoration: none;
+        padding: 13px 20px; border-radius: 12px; font-size: 14px; font-weight: 800;
+        font-family: inherit; border: 1px solid rgba(212,175,55,0.8); margin: 4px 0;
+    }
+    .btn-gold { background: linear-gradient(135deg, #eed77f, #c9a227 55%, #a97f2f); color: #171104;
+        box-shadow: 0 14px 30px rgba(212,175,55,0.25); }
+    .btn-dark { background: transparent; color: #e9d28c; border: 1px solid rgba(212,175,55,0.45); }
+    .ok { color: #9fdc9f; font-size: 13px; font-weight: 700; margin-inline-start: 10px; display: none; }
+    .step { color: #d9cfae; font-size: 14px; line-height: 2.1; margin: 6px 0; }
+    .step b { color: #f0e6c8; }
+    .num { display: inline-block; width: 24px; height: 24px; border-radius: 50%; background: #d4af37;
+        color: #171104; font-weight: 800; font-size: 13px; text-align: center; line-height: 24px; margin-inline-end: 8px; }
+    code { direction: ltr; unicode-bidi: embed; display: inline-block; background: rgba(212,175,55,0.10);
+        border: 1px solid rgba(212,175,55,0.25); border-radius: 7px; padding: 2px 9px;
+        color: #f0e6c8; font-size: 12.5px; word-break: break-all; font-family: Consolas, monospace; }
+    .preview { border: 1px solid rgba(212,175,55,0.3); border-radius: 16px; padding: 22px;
+        background: linear-gradient(135deg, #16130c, #0b0906); text-align: center; }
+    .preview .tag { color: rgba(212,175,55,0.6); font-size: 11px; letter-spacing: 3px; margin-bottom: 10px; }
+    .preview .brand { font-size: 30px; font-weight: 800; }
+    details { margin-top: 10px; }
+    summary { cursor: pointer; color: #e9d28c; font-size: 14px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <h1>فرم فروش پنل به مشتری جدید</h1>
+    <div class="sub">مشخصات خریدار را پر کنید — فایل tenant و همهٔ مراحل بعدی به صورت خودکار ساخته میشود.<br />
+    قالب پایه (<b>main</b>) دست نمیخورد و پنل مشتریهای قبلی هیچ تغییری نمیکند.</div>
+
+    <!-- FORM -->
+    <div class="card">
+        <h2>۱) مشخصات خریدار (شخص / شرکت)</h2>
+        <div class="grid">
+            <div><label>نام برند (انگلیسی — برای نمایش در سایت) *</label>
+                <input type="text" id="name" placeholder="AL SAHARA MOTORS" oninput="gen()" /></div>
+            <div><label>نام کوتاه (اختیاری)</label>
+                <input type="text" id="shortName" placeholder="AL SAHARA" oninput="gen()" /></div>
+            <div><label>اسلاگ (نام فایل و شناسه — انگلیسی، بدون فاصله) *</label>
+                <input type="text" id="slug" placeholder="al-sahara" oninput="gen()" /></div>
+            <div><label>ارز نمایش قیمت</label>
+                <input type="text" id="currency" value="AED" oninput="gen()" /></div>
+            <div><label>شهر (فارسی)</label>
+                <input type="text" id="cityFa" placeholder="دبی" oninput="gen()" /></div>
+            <div><label>شهر (انگلیسی)</label>
+                <input type="text" id="cityEn" placeholder="Dubai" oninput="gen()" /></div>
+            <div><label>کشور (فارسی)</label>
+                <input type="text" id="countryFa" placeholder="امارات" oninput="gen()" /></div>
+            <div><label>کشور (انگلیسی)</label>
+                <input type="text" id="countryEn" placeholder="UAE" oninput="gen()" /></div>
+            <div><label>واتساپ (بینالمللی، فقط رقم — مثلاً 9715xxxxxxx)</label>
+                <input type="text" id="whatsapp" placeholder="971500000000" oninput="gen()" /></div>
+            <div><label>تلفن (اختیاری)</label>
+                <input type="text" id="phone" oninput="gen()" /></div>
+            <div><label>ایمیل (اختیاری)</label>
+                <input type="email" id="email" oninput="gen()" /></div>
+            <div><label>اینستاگرام (اختیاری — فقط آیدی)</label>
+                <input type="text" id="instagram" oninput="gen()" /></div>
+            <div><label>رنگ اصلی (پیشفرض طلایی)</label>
+                <input type="color" id="primaryColor" value="#d4af37" oninput="gen()" /></div>
+            <div>
+                <label>امکانات فعال</label>
+                <div class="checks">
+                    <label><input type="checkbox" id="f_whatsapp" checked onchange="gen()" /> واتساپ</label>
+                    <label><input type="checkbox" id="f_shipping" checked onchange="gen()" /> هزینه حمل</label>
+                    <label><input type="checkbox" id="f_customs" checked onchange="gen()" /> گمرک</label>
+                    <label><input type="checkbox" id="f_financing" onchange="gen()" /> اقساط</label>
+                    <label><input type="checkbox" id="f_testDrive" onchange="gen()" /> تست درایو</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div class="card">
+        <h2>۲) پیشنمایش هویت</h2>
+        <div class="preview">
+            <div class="tag">PREMIUM DEALERSHIP</div>
+            <div class="brand" id="pv-name">— نام برند —</div>
+            <div class="tag" style="margin-top:10px;" id="pv-loc">— شهر / کشور —</div>
+        </div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="card">
+        <h2>۳) فایل مشتری — <span id="file-path" style="direction:ltr;unicode-bidi:embed;">frontend/src/config/tenants/<slug>.js</span></h2>
+        <textarea id="out-file" spellcheck="false">مشخصات بالا را پر کنید...</textarea>
+        <button class="btn btn-gold" onclick="copyIt('out-file', this)">📋 کپی فایل tenant</button><span class="ok">✓ کپی شد</span>
+    </div>
+
+    <div class="card">
+        <h2>۴) دو خط ثبت در ریجیستری (tenants/index.js)</h2>
+        <div class="step">خط اول را کنار importهای بالای فایل و خط دوم را داخل <code>tenants = { ... }</code> (بعد از خط qeshm) اضافه کنید:</div>
+        <textarea id="out-reg" class="small" spellcheck="false"></textarea>
+        <button class="btn btn-dark" onclick="copyIt('out-reg', this)">📋 کپی قطعهٔ ریجیستری</button><span class="ok">✓ کپی شد</span>
+    </div>
+
+    <!-- STEPS -->
+    <div class="card">
+        <h2>۵) مراحل راهاندازی (فقط مرورگر — بدون ترمینال)</h2>
+
+        <div class="step"><span class="num">۱</span>در گیتهاب وارد پوشهٔ <code>frontend/src/config/tenants</code> شوید → <b>Add file → Create new file</b></div>
+        <div class="step"><span class="num">۲</span>نام فایل: <code id="step-file">tenants/&lt;slug&gt;.js</code> → محتوای مرحلهٔ ۳ را paste کنید</div>
+        <div class="step"><span class="num">۳</span>فایل <code>index.js</code> همان پوشه را باز کنید (مداد ✏) → دو خط مرحلهٔ ۴ را در جای گفتهشده اضافه کنید → <b>Commit changes</b> (مستقیم به main — امن است، چون فقط «اضافه» است و پنل فعلی تغییری نمیکند)</div>
+        <div class="step"><span class="num">۴</span>بعد از دیپلوی (~۳ دقیقه) پیشنمایش مشتری روی سایت فعلی: <code id="step-preview">?dealer=&lt;slug&gt;</code></div>
+        <div class="step"><span class="num">۵</span>پنل مستقل مشتری: در Render → <b>New + → Static Site</b> → همان ریپو، برنچ <b>main</b> → Build: <code>cd frontend &amp;&amp; npm install &amp;&amp; npm run build</code> → Publish: <code>frontend/dist</code> → در Environment متغیر <code id="step-env">VITE_TENANT=&lt;slug&gt;</code> بسازید. دامنهٔ اختصاصی مشتری را هم همانجا وصل کنید.</div>
+
+        <details>
+            <summary>تغییرات عمیق اختصاصی این مشتری (تغییر طراحی و...) — شاخهٔ جدا</summary>
+            <div class="step" style="margin-top:10px;">اگر مشتری تغییراتی خواست که به قالب پایه ربطی ندارد (رنگبندی کامل، صفحات اضافه و...)، در گیتهاب از صفحهٔ Branches برنچ جدید <code id="step-branch">client/&lt;slug&gt;</code> را از main بسازید، تغییرات را فقط داخل همان برنچ بدهید، و در Render سایتِ همان مشتری را روی <b>آن برنچ</b> تنظیم کنید. آپدیتهای آیندهٔ قالب پایه را هر وقت خواستید با دکمهٔ <b>Sync/merge از main</b> داخل برنچ مشتری میآورید — بقیهٔ مشتریها دست نمیخورند.</div>
+        </details>
+    </div>
+</div>
+
+<script>
+function slugify(v) {
+    return String(v || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+function camel(slug) {
+    if (!slug) return "x";
+    return slug.split("-").map(function(p, i){ return i ? p.charAt(0).toUpperCase() + p.slice(1) : p; }).join("");
+}
+function q(s) { return JSON.stringify(s || ""); }
+
+function gen() {
+    var name = document.getElementById("name").value.trim();
+    var shortName = document.getElementById("shortName").value.trim() || name;
+    var slug = slugify(document.getElementById("slug").value || name);
+    var cur = document.getElementById("currency").value.trim() || "AED";
+    var cityFa = document.getElementById("cityFa").value.trim();
+    var cityEn = document.getElementById("cityEn").value.trim();
+    var countryFa = document.getElementById("countryFa").value.trim();
+    var countryEn = document.getElementById("countryEn").value.trim();
+    var phone = document.getElementById("phone").value.trim();
+    var wa = document.getElementById("whatsapp").value.replace(/\D/g, "");
+    var email = document.getElementById("email").value.trim();
+    var insta = document.getElementById("instagram").value.trim();
+    var color = document.getElementById("primaryColor").value;
+    var v = function(id){ return document.getElementById(id).checked; };
+
+    document.getElementById("file-path").textContent = "frontend/src/config/tenants/" + (slug || "<slug>") + ".js";
+    document.getElementById("step-file").textContent = "tenants/" + (slug || "<slug>") + ".js";
+    document.getElementById("step-preview").textContent = "?dealer=" + (slug || "<slug>");
+    document.getElementById("step-env").textContent = "VITE_TENANT=" + (slug || "<slug>");
+    document.getElementById("step-branch").textContent = "client/" + (slug || "<slug>");
+    document.getElementById("pv-name").textContent = name || "— نام برند —";
+    document.getElementById("pv-loc").textContent = (cityFa || cityEn || "شهر") + " / " + (countryFa || countryEn || "کشور");
+
+    if (!name || !slug) {
+        document.getElementById("out-file").value = "مشخصات بالا را پر کنید...";
+        document.getElementById("out-reg").value = "";
+        return;
+    }
+
+    var c = camel(slug);
+    var f = [];
+    f.push("// ------------------------------------------------------------");
+    f.push("// مشتری: " + name);
+    f.push("// ساختهشده با فرم فروش — فقط تفاوتها با قالب پایه اینجا نوشته میشود.");
+    f.push("// ------------------------------------------------------------");
+    f.push("");
+    f.push("export const " + c + "Tenant = {");
+    f.push("    tenant: " + q(slug) + ",");
+    f.push("");
+    f.push("    name: " + q(name) + ",");
+    f.push("    shortName: " + q(shortName) + ",");
+    f.push("");
+    f.push("    city: " + q(cityEn) + ",");
+    f.push("    country: " + q(countryEn) + ",");
+    f.push("");
+    f.push("    cityFa: " + q(cityFa) + ",");
+    f.push("    countryFa: " + q(countryFa) + ",");
+    f.push("");
+    f.push("    cityEn: " + q(cityEn) + ",");
+    f.push("    countryEn: " + q(countryEn) + ",");
+    f.push("");
+    f.push("    phone: " + q(phone) + ",");
+    f.push("    whatsapp: " + q(wa) + ",");
+    f.push("    email: " + q(email) + ",");
+    f.push("    instagram: " + q(insta) + ",");
+    f.push("");
+    f.push("    logo: \"\",");
+    f.push("    primaryColor: " + q(color) + ",");
+    f.push("    secondaryColor: \"#050505\",");
+    f.push("");
+    f.push("    currency: " + q(cur) + ",");
+    f.push("");
+    f.push("    features: {");
+    f.push("        whatsapp: " + v("f_whatsapp") + ",");
+    f.push("        shipping: " + v("f_shipping") + ",");
+    f.push("        customs: " + v("f_customs") + ",");
+    f.push("        financing: " + v("f_financing") + ",");
+    f.push("        testDrive: " + v("f_testDrive") + ",");
+    f.push("    },");
+    f.push("};");
+    f.push("");
+    f.push("export default " + c + "Tenant;");
+    f.push("");
+    document.getElementById("out-file").value = f.join("\n");
+
+    var r = [];
+    r.push("// ۱) بالای فایل index.js — کنار بقیهٔ importها:");
+    r.push("import { " + c + "Tenant } from \"./" + slug + "\";");
+    r.push("");
+    r.push("// ۲) داخل tenants = { ... } — بعد از خط  qeshm: qeshmTenant,");
+    r.push("    " + slug + ": " + c + "Tenant,");
+    document.getElementById("out-reg").value = r.join("\n");
+}
+
+function copyIt(id, btn) {
+    var t = document.getElementById(id);
+    t.focus(); t.select();
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) {}
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t.value);
+        ok = true;
+    }
+    if (ok && btn) {
+        var s = btn.parentElement.querySelector(".ok");
+        if (s) { s.style.display = "inline"; setTimeout(function(){ s.style.display = "none"; }, 2000); }
+    }
+}
+</script>
+</body>
+</html>
