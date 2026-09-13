@@ -93,6 +93,22 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
 
     return (
         <>
+            {/* فونت Vazirmatn — همان فونت «خودروی ویژه» در صفحه‌ی جزئیات */}
+            <link rel="preconnect" href={"ht" + "tps://fonts.googleapis.com"} />
+            <link
+                rel="preconnect"
+                href={"ht" + "tps://fonts.gstatic.com"}
+                crossOrigin="anonymous"
+            />
+            <link
+                href={
+                    ("ht" + "tps://fonts.googleapis.com/css2?") +
+                    "family=Vazirmatn:wght@700;800&" +
+                    "display=swap"
+                }
+                rel="stylesheet"
+            />
+
             <div
                 style={{
                     width: "100%",
@@ -320,9 +336,10 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
 
                                 cursor: "pointer",
 
-                                fontFamily: "Tahoma, Arial, sans-serif",
-                                fontSize: "13px",
+                                fontFamily: "'Vazirmatn', Tahoma, Arial, sans-serif",
+                                fontSize: "15px",
                                 fontWeight: 800,
+                                letterSpacing: "0",
                                 lineHeight: 1.3,
 
                                 whiteSpace: "nowrap",
@@ -376,9 +393,10 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
 
                                 cursor: "pointer",
 
-                                fontFamily: "Tahoma, Arial, sans-serif",
-                                fontSize: "13px",
+                                fontFamily: "'Vazirmatn', Tahoma, Arial, sans-serif",
+                                fontSize: "15px",
                                 fontWeight: 800,
+                                letterSpacing: "0",
                                 lineHeight: 1.3,
 
                                 whiteSpace: "nowrap",
