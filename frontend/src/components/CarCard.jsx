@@ -250,7 +250,7 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                     <div
                         style={{
                             display: "flex",
-                                                        alignItems: "baseline",
+                            alignItems: "baseline",
                             justifyContent: "center",
                             gap: "7px",
                             flexWrap: "wrap",
@@ -282,13 +282,13 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                     </div>
 
                     {/* ACTIONS — فقط بخش پایین کارت (مطابق عکس کارفرما) */}
-                    {/* شامل: دکمه «مشاهده جزئیات» + دکمه آبی «تماس / درخواست بازدید» — همه وسط‌چین */}
+                    {/* شامل: دکمه «مشاهده جزئیات» + دکمه آبی «تماس / درخواست بازدید» — در یک ردیف، پایین کارت */}
 
                     <div
                         style={{
                             marginTop: "auto",
 
-                                                        display: "flex",
+                            display: "flex",
                             flexDirection: "row",
                             alignItems: "stretch",
                             justifyContent: "center",
@@ -306,7 +306,7 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                             aria-label={`مشاهده جزئیات ${title}`}
 
                             style={{
-                                                                flex: "1 1 160px",
+                                flex: "1 1 160px",
                                 minWidth: 0,
 
                                 padding: "13px 12px",
@@ -373,7 +373,7 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                             dir="rtl"
 
                             style={{
-                                                                flex: "1 1 160px",
+                                flex: "1 1 160px",
                                 minWidth: 0,
 
                                 padding: "13px 16px",
@@ -437,7 +437,7 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                             <span
                                 style={{
                                     fontFamily: "Tahoma, Arial, sans-serif",
-                                    fontSize: "14px",
+                                    fontSize: "13px",
                                     fontWeight: 800,
                                     lineHeight: 1.3,
 
@@ -447,33 +447,6 @@ function CarCard({ car, onViewDetails, onContactRequest }) {
                                 }}
                             >
                                 تماس / درخواست بازدید
-                            </span>
-
-                            {/* ARROW */}
-
-                            <span
-                                aria-hidden="true"
-                                style={{
-                                    flex: "0 0 auto",
-
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}
-                            >
-                                <svg
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="#ffffff"
-                                    strokeWidth="2.4"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <line x1="4" y1="12" x2="20" y2="12" />
-                                    <polyline points="13 5 20 12 13 19" />
-                                </svg>
                             </span>
                         </button>
                     </div>
