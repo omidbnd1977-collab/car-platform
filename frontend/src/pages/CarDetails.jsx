@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { getImageUrl } from "../utils/imageUrl";
 import dealerConfig from "../config/dealerConfig";
 import ContactModal from "../components/ContactModal";
@@ -6,7 +6,10 @@ import ContactModal from "../components/ContactModal";
 const PLACEHOLDER_IMAGE =
     "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23e0e0e0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%23999999'%3ENo Image%3C/text%3E%3C/svg%3E";
 
-function CarDetails({ car, onBack }) {
+// onEdit و onManageImages اختیاری هستند: فقط وقتی پنل ادمین این صفحه را
+// باز می‌کند مقدار دارند و یک نوار عملیات ادمین بالای صفحه ظاهر می‌شود.
+// در سایت (Home) مقدار ندارند و هیچ دکمه‌ی ادمینی رندر نمی‌شود.
+function CarDetails({ car, onBack, onEdit, onManageImages }) {
     const [language, setLanguage] = useState("fa");
     const [contactOpen, setContactOpen] = useState(false);
 
@@ -41,6 +44,8 @@ function CarDetails({ car, onBack }) {
               photoCategories: "دسته‌بندی تصاویر",
               noImage: "تصویری موجود نیست",
               active: "فعال",
+              editDetails: "ویرایش مشخصات",
+              manageImages: "مدیریت تصاویر",
              
               english: "English",
               persian: "فارسی",
@@ -73,6 +78,8 @@ function CarDetails({ car, onBack }) {
               photoCategories: "PHOTO CATEGORIES",
               noImage: "NO IMAGE",
               active: "ACTIVE",
+              editDetails: "EDIT DETAILS",
+              manageImages: "MANAGE IMAGES",
              
               english: "English",
               persian: "فارسی",
@@ -162,6 +169,12 @@ const firstImage =
 
 const [activeImage, setActiveImage] =
     useState(firstImage);
+
+// اگر خودرو عوض شود ولی کامپوننت remount نشود، تصویر بزرگ نباید روی
+// عکس خودروی قبلی بماند.
+useEffect(() => {
+    setActiveImage(firstImage);
+}, [car?.id, firstImage]);
     const brand =
         car?.brand_name ||
         car?.brand ||
@@ -290,6 +303,61 @@ const [activeImage, setActiveImage] =
                     >
                         {labels.back}
                     </button>
+
+                    {(onEdit || onManageImages) ? (
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: "8px",
+                                flexWrap: "wrap",
+                                marginInlineStart: "auto",
+                            }}
+                        >
+                            {onEdit ? (
+                                <button
+                                    type="button"
+                                    onClick={onEdit}
+                                    style={{
+                                        padding: "13px 18px",
+                                        border: "1px solid rgba(212,175,55,0.55)",
+                                        borderRadius: "10px",
+                                        background: "transparent",
+                                        color: "#d4af37",
+                                        cursor: "pointer",
+                                        fontSize: isFa ? "14px" : "12px",
+                                        fontWeight: 800,
+                                        fontFamily: isFa
+                                            ? "Tahoma, Arial, sans-serif"
+                                            : "Arial, Helvetica, sans-serif",
+                                    }}
+                                >
+                                    {labels.editDetails}
+                                </button>
+                            ) : null}
+
+                            {onManageImages ? (
+                                <button
+                                    type="button"
+                                    onClick={onManageImages}
+                                    style={{
+                                        padding: "13px 18px",
+                                        border: "1px solid rgba(255,255,255,0.18)",
+                                        borderRadius: "10px",
+                                        background: "#fff",
+                                        color: "#050505",
+                                        cursor: "pointer",
+                                        fontSize: isFa ? "14px" : "12px",
+                                        fontWeight: 800,
+                                        fontFamily: isFa
+                                            ? "Tahoma, Arial, sans-serif"
+                                            : "Arial, Helvetica, sans-serif",
+                                    }}
+                                >
+                                    {labels.manageImages}
+                                </button>
+                            ) : null}
+                        </div>
+                    ) : null}
 
                     <div
                         style={{
