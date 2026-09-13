@@ -248,7 +248,7 @@ function gen() {
     r.push("import { " + c + "Tenant } from \"./" + slug + "\";");
     r.push("");
     r.push("// ۲) داخل tenants = { ... } — بعد از خط  qeshm: qeshmTenant,");
-    r.push("    " + slug + ": " + c + "Tenant,");
+   r.push("    \"" + slug + "\": " + c + "Tenant,");
     document.getElementById("out-reg").value = r.join("\n");
 }
 
