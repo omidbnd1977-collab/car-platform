@@ -805,6 +805,7 @@ function CarDetails({ car, onBack, onEdit, onManageImages }) {
                                         letterSpacing: isFa ? "0" : "2.5px",
                                         marginBottom: "8px",
                                         fontFamily: bodyFont(isFa),
+                                        textAlign: "center",
                                     }}
                                 >
                                     {labels.price}
@@ -814,6 +815,7 @@ function CarDetails({ car, onBack, onEdit, onManageImages }) {
                                     style={{
                                         display: "flex",
                                         alignItems: "baseline",
+                                        justifyContent: "center",
                                         gap: "10px",
                                         flexWrap: "wrap",
                                     }}
@@ -849,6 +851,7 @@ function CarDetails({ car, onBack, onEdit, onManageImages }) {
                                         fontSize: isFa ? "13px" : "11px",
                                         fontWeight: 500,
                                         lineHeight: 1.9,
+                                        textAlign: "center",
                                     }}
                                 >
                                     {labels.priceNote}
