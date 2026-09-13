@@ -5,6 +5,8 @@
 | [admin-security.md](./admin-security.md) | محافظ روت‌های نوشتنی (`ADMIN_API_KEY` / `x-admin-key`)، چه‌طور روشنش کنند، چه محدودیتی هنوز باز است |
 | [tenants.md](./tenants.md) | قالب پایه + پنل هر مشتری (`frontend/src/config/tenants`)، استراتژی برنچ برای تغییرات اختصاصی |
 | [uploads-storage.md](./uploads-storage.md) | تصمیم موقتِ ذخیره‌ی عکس روی دیسک هاست و مراحل سوییچ به R2/S3 |
+| [car-details-panel.md](./car-details-panel.md) | صفحه‌ی جزئیات خودرو در سایت و پنل ادمین؛ رفتار دکمه‌های ادمین و بخش‌های صفحه |
+| [windows-git-recovery.md](./windows-git-recovery.md) | راهنمای قدم‌به‌قدم رفع ریپوی خراب روی ویندوز (git init در خانه، ریموت غلط، پوش ناموفق) |
 
 ## نقشه‌ی سریع کد
 - فرم افزودن خودرو: `frontend/src/pages/AddCar.jsx` (فقط کمبوکس؛ تایپ فقط برای قیمت/توضیحات/«افزودن به کاتالوگ»)
