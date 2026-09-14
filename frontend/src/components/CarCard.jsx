@@ -33,9 +33,9 @@ export default function CarCard({car,onViewDetails,onContactRequest}){
         <h3 style={{margin:"0 0 12px",fontSize:"19px",color:"#111",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{title}</h3>
         <div style={{display:"flex",justifyContent:"center",gap:"7px",marginBottom:"20px"}}><span style={{fontSize:"26px",fontWeight:900,color:"#111"}}>{price}</span><span style={{fontSize:"13px",fontWeight:800,color:"#8a8a8a"}}>{dealerConfig.currency}</span></div>
         <div style={{marginTop:"auto",display:"flex",border:"1.5px solid rgba(212,175,55,0.55)",borderRadius:"999px",overflow:"hidden",background:"#fff"}}>
-          <button type="button" onClick={handleContact} dir="rtl" style={{flex:1,padding:"13px 8px",border:"none",background:"#fff",color:"#a97f2f",fontFamily:"Vazirmatn, Tahoma, sans-serif",fontSize:"15px",fontWeight:800,cursor:"pointer"}}>درخواست بازدید</button>
+          <button type="button" onClick={handleContact} dir="rtl" style={{flex:1,padding:"13px 8px",border:"none",background:"#fff",color:"#a97f2f",cursor:"pointer",fontFamily:"Tahoma, Arial, sans-serif",fontSize:"13px",fontWeight:900,letterSpacing:"0.8px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>درخواست بازدید</button>
           <span style={{width:"1px",margin:"9px 0",background:"rgba(169,127,47,0.35)"}} />
-          <button type="button" onClick={()=>onViewDetails&&onViewDetails(car)} dir="rtl" style={{flex:1,padding:"13px 8px",border:"none",background:"#fff",color:"#a97f2f",fontFamily:"Vazirmatn, Tahoma, Arial, sans-serif",fontSize:"15px",fontWeight:800,cursor:"pointer"}}>مشاهده جزئیات</button>
+          <button type="button" onClick={()=>onViewDetails&&onViewDetails(car)} dir="rtl" style={{flex:1,padding:"13px 8px",border:"none",background:"#fff",color:"#a97f2f",fontFamily:"Tahoma, Arial, sans-serif",fontSize:"13px",fontWeight:900,letterSpacing:"0.8px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",cursor:"pointer"}}>مشاهده جزئیات</button>
         </div>
       </div>
     </div>
