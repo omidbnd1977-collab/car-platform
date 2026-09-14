@@ -5,11 +5,16 @@ import "./App.css";
 
 function App() {
     const path = window.location.pathname.replace(/\/+$/, "") || "/";
-
-    if (path === "/admin") {
+    const search = window.location.search || "";
+    const hash = window.location.hash || "";
+    const isAdmin =
+        path === "/admin" ||
+        path.startsWith("/admin/") ||
+        search.includes("admin") ||
+        hash.includes("admin");
+    if (isAdmin) {
         return <AdminCars />;
     }
-
     return <Home />;
 }
 
