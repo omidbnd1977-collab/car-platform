@@ -45,7 +45,7 @@ function writeViewToLocation(view) {
     }
 
     const next =
-        view === VIEW_NONE ? window.location.pathname + "/" : window.location.pathname + view;
+        view === VIEW_NONE ? window.location.pathname + window.location.search : window.location.pathname + window.location.search + view;
 
     if (window.location.pathname + window.location.hash !== next) {
         window.history.replaceState(null, "", next);
