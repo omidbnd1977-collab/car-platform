@@ -3,7 +3,8 @@ import api from "../services/api";
 import CarCard from "../components/CarCard";
 import CarDetails from "./CarDetails";
 import { getImageUrl } from "../utils/imageUrl";
-import dealerConfig from "../config/dealerConfig";
+import dealerConfig, { tenantSlug } from "../config/dealerConfig";
+import { QRCodeSVG } from "qrcode.react";
 
 function Home() {
     const [cars, setCars] = useState([]);
