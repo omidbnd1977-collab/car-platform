@@ -11,6 +11,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const publicRoutes = require("./routes/publicRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
 const visitRequestRoutes = require("./routes/visitRequestRoutes");
+const smsRoutes = require("./routes/smsRoutes");
 const multer = require("multer");
 const { MAX_FILE_SIZE_MB } = require("./middleware/upload");
 const storageService = require("./services/storageService");
@@ -73,6 +74,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/public", publicRoutes);
 app.use("/api/purchases", purchaseRoutes);
 app.use("/api/visit-requests", visitRequestRoutes);
+app.use("/api/sms", smsRoutes);
 app.use(
 "/api/catalog",
 catalogRoutes
@@ -154,8 +156,32 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT,()=>{
+app.listen(PORT,async ()=>{
     console.log(
         `Server running on port ${PORT}`
     );
+    // جدول درخواست بازدید را در شروع سرور بساز تا اولین POST گیر نکند
+    try {
+        const { ensureTable } = require("./controllers/visitRequestController");
+        await ensureTable();
+        console.log("VISIT_REQUESTS ensured on startup");
+    } catch (e) {
+        console.error("VISIT_REQUESTS startup ensure failed:", e.message);
+    }
+    // وضعیت پیامک کاوه‌نگار
+    try {
+        const smsService = require("./services/smsService");
+        const smsConf = smsService.getConfig();
+        console.log("SMS CONFIG:", JSON.stringify({
+            enabled: smsConf.enabled,
+            hasSender: Boolean(smsConf.sender),
+            adminCount: smsConf.adminMobiles.length,
+            adminMasked: smsConf.adminMobiles.map(m => m.slice(0,4)+"***"+m.slice(-2))
+        }));
+        if (!smsConf.enabled) {
+            console.log("SMS: خاموش - KAVENEGAR_API_KEY تنظیم نشده. برای فعال‌سازی در Render ست کنید.");
+        }
+    } catch (e) {
+        console.log("SMS config check failed:", e.message);
+    }
 });

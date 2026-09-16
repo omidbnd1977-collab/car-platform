@@ -1,4 +1,5 @@
 const db = require("../config/database");
+const smsService = require("../services/smsService");
 
 let tableEnsured = false;
 
@@ -190,6 +191,34 @@ exports.createVisitRequest = async (req, res) => {
         }
 
         console.log(`VISIT REQUEST CREATED: #${result.rows[0].id} ${mobile} -> car ${car_id} ${car_title}`);
+
+        // ارسال پیامک کاوه‌نگار به مدیر + تایید به مشتری (غیرمسدودکننده)
+        // اگر ENV ست نباشد، فقط لاگ می‌شود و درخواست موفق می‌ماند
+        setImmediate(async () => {
+            try {
+                const smsConf = smsService.getConfig();
+                if (smsConf.enabled) {
+                    console.log("SMS: attempting admin notification to", smsConf.adminMobiles.join(","));
+                    await smsService.notifyAdminNewRequest({
+                        firstName: first_name,
+                        lastName: last_name,
+                        mobile,
+                        carTitle: car_title,
+                        carId: car_id
+                    });
+                    // تایید به مشتری (تراکنشی)
+                    await smsService.sendCustomerConfirmation({
+                        mobile,
+                        firstName: first_name,
+                        carTitle: car_title
+                    });
+                } else {
+                    console.log("SMS: disabled (KAVENEGAR_API_KEY not set)");
+                }
+            } catch (smsErr) {
+                console.error("SMS background error (non-critical):", smsErr.message);
+            }
+        });
 
         return res.status(201).json({
             message: "درخواست شما با موفقیت ثبت شد",
