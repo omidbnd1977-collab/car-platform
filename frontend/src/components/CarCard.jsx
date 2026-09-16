@@ -66,8 +66,13 @@ function actionButtonStyle(colors) {
 function CarCard({
     car,
     onViewDetails,
+    onContact,
 }) {
     const handleContact = () => {
+        if (onContact) {
+            onContact(car);
+            return;
+        }
         const phone = String(dealerConfig.phone || "").trim();
         if (phone) {
             window.location.href = `tel:${phone}`;

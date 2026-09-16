@@ -1,1138 +1,1237 @@
-import React, { useEffect, useMemo, useState } from "react";
+// ------------------------------------------------------------
+// صفحه‌ی جزئیات خودرو (بازنویسی)
+// ------------------------------------------------------------
+// چه چیزی عوض شد و چرا:
+//
+// ۱) حذف تکرارها — قبلاً «برند، مدل، سال، موقعیت، نمایندگی، وضعیت،
+//    قیمت، شناسه» دو بار نشان داده می‌شد: یک بار در ستون چپ
+//    (کامپوننت Info) و یک بار در ستون راست (کامپوننت DetailRow).
+//    حالا یک ستون اطلاعات هست و هر فیلد فقط یک بار.
+//
+// ۲) حذف بخش «دسته‌بندی تصاویر» (photoCategories) به درخواست کاربر؛
+//    آن بخش فقط همان عکس‌های گالری را به‌شکل متن «تصویر موجود است»
+//    تکرار می‌کرد. ردیف بندانگشتیِ گالری هم دوبار عکس نشان نمی‌دهد:
+//    یک تصویر بزرگ + یک ردیف بندانگشتی.
+//
+// ۳) عکس‌ها — از SafeImage استفاده می‌شود. اگر فایلی روی سرور
+//    نبود (۴۰۴ به‌خاطر پاک‌شدن دیسک موقتی Render)، گالری خودش
+//    می‌پرد روی عکس سالم بعدی و یک پیام کوتاه می‌دهد؛ هیچ‌وقت
+//    آیکون شکسته یا کادر خالی دیده نمی‌شود.
+//
+// ۴) داده‌ی کامل — Home آبجکت لیست خودروها را می‌دهد که
+//    brand_name / توضیحات / تلفن و آدرس نمایندگی را ندارد.
+//    این صفحه حالا خودش GET /api/cars/:id را می‌زند تا جزئیات
+//    واقعی پر شود (بدون آن‌ها صفحه خالی‌تر از چیزی بود که هست).
+//
+// ۵) هزینه‌ی گمرک — طبق تصمیم کاربر همان «بعهده خریدار» می‌ماند
+//    و مبلغ ثبت‌شده در دیتابیس به مجموع اضافه نمی‌شود.
+//
+// ۶) ظاهر — یک لایه‌ی ثابت (overlay) روی صفحه، هدر جمع‌وجور با
+//    قیمت در همان بالا، گالری چسبان، و کیبورد (← → و Esc).
+// ------------------------------------------------------------
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getImageUrl } from "../utils/imageUrl";
+import { apiUrl } from "../utils/apiBase";
 import dealerConfig from "../config/dealerConfig";
-import ContactModal from "../components/ContactModal";
+import SafeImage from "../components/SafeImage";
+import { makePlaceholder } from "../utils/imagePlaceholder";
+import { labelForImage, pickVisibleIndex } from "../utils/gallery";
 
-const PLACEHOLDER_IMAGE =
-    "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23e0e0e0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%23999999'%3ENo Image%3C/text%3E%3C/svg%3E";
+const STORAGE_KEY = "carDetailsLang";
 
-// ------------------------------------------------------------
-// پالت لوکس: مشکی عمیق + طلایی شامپاینی
-// ------------------------------------------------------------
-const GOLD = "#d4af37";
-const GOLD_TEXT = "#e9d28c";
-const GOLD_DIM = "rgba(212,175,55,0.55)";
-const GOLD_FAINT = "rgba(212,175,55,0.16)";
-
-const headingFont = (isFa) =>
-    isFa
-        ? "'Markazi Text', Tahoma, serif"
-        : "'Playfair Display', 'Cormorant Garamond', Georgia, serif";
-
-const bodyFont = (isFa) =>
-    isFa
-        ? "'Vazirmatn', Tahoma, sans-serif"
-        : "'Montserrat', 'Helvetica Neue', Arial, sans-serif";
-
-// کادر مشترک همه‌ی بخش‌ها (شیشه‌ای با لبه‌ی طلایی)
-const cardStyle = {
-    position: "relative",
-    background:
-        "linear-gradient(165deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.014) 45%, rgba(212,175,55,0.07) 100%)",
-    border: `1px solid ${GOLD_FAINT}`,
-    borderRadius: "24px",
-    boxShadow:
-        "0 26px 70px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.07)",
+// برچسب نماها — یک‌جا برای هر دو زبان تا تکرار شرط‌ها حذف شود.
+const VIEW_LABELS = {
+    fa: {
+        MAIN: "تصویر اصلی",
+        FRONT: "جلو",
+        SIDE: "بغل",
+        REAR: "عقب",
+        INTERIOR: "داخل کابین",
+        OTHER: "تصویر",
+    },
+    en: {
+        MAIN: "MAIN",
+        FRONT: "FRONT",
+        SIDE: "SIDE",
+        REAR: "REAR",
+        INTERIOR: "INTERIOR",
+        OTHER: "IMAGE",
+    },
 };
 
-// قاب طلایی دور تصویر اصلی خودرو
-const goldFrame = {
-    padding: "3px",
-    borderRadius: "27px",
-    background:
-        "linear-gradient(135deg, rgba(212,175,55,0.75) 0%, rgba(212,175,55,0.12) 40%, rgba(212,175,55,0.5) 100%)",
-    boxShadow:
-        "0 34px 90px rgba(0,0,0,0.55), 0 0 70px rgba(212,175,55,0.09)",
-    marginBottom: "16px",
-};
+function buildLabels(isFa) {
+    if (isFa) {
+        return {
+            back: "بازگشت",
+            premium: "خودروی ویژه",
+            gallery: "گالری",
+            price: "قیمت",
+            costs: "هزینه‌های جانبی",
+            shipping: "هزینه حمل",
+            customs: "گمرک",
+            customsBuyer: "بعهده خریدار",
+            specs: "مشخصات",
+            year: "سال ساخت",
+            brand: "برند",
+            model: "مدل",
+            status: "وضعیت",
+            country: "کشور",
+            location: "موقعیت",
+            dealer: "نمایندگی",
+            vehicleId: "شناسه",
+            description: "توضیحات",
+            noDescription: "توضیحاتی برای این خودرو ثبت نشده است.",
+            contact: "تماس",
+            call: "تماس",
+            whatsapp: "واتساپ",
+            address: "آدرس",
+            active: "فعال",
+            loading: "در حال دریافت جزئیات…",
+            retry: "تلاش دوباره",
+            detailFailed: "جزئیات کامل دریافت نشد؛ آنچه از لیست داشتیم نمایش داده می‌شود.",
+            imageMissing: "این عکس روی سرور نیست",
+            imageSkipped: "عکس باز نشد؛ عکس بعدی نمایش داده شد.",
+            allImagesMissing: "عکس‌های این خودرو روی سرور در دسترس نیست.",
+            noImage: "این خودرو عکس ندارد.",
+            persian: "فارسی",
+            english: "English",
+            photoOf: (a, b) =>
+                `${Number(a).toLocaleString("fa-IR")} از ${Number(b).toLocaleString("fa-IR")}`,
+        };
+    }
 
-function SectionTitle({ label, isFa }) {
-    return (
-        <div
-            style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                color: GOLD_TEXT,
-                fontSize: isFa ? "20px" : "13px",
-                fontWeight: 700,
-                letterSpacing: isFa ? "0" : "3px",
-                marginBottom: "20px",
-                fontFamily: bodyFont(isFa),
-            }}
-        >
-            <span
-                style={{
-                    width: "28px",
-                    height: "2px",
-                    borderRadius: "2px",
-                    background: `linear-gradient(90deg, ${GOLD}, transparent)`,
-                }}
-            />
-            {label}
-        </div>
-    );
+    return {
+        back: "BACK",
+        premium: "PREMIUM VEHICLE",
+        gallery: "GALLERY",
+        price: "PRICE",
+        costs: "EXTRA COSTS",
+        shipping: "SHIPPING",
+        customs: "CUSTOMS",
+        customsBuyer: "Buyer responsibility",
+        specs: "SPECIFICATIONS",
+        year: "YEAR",
+        brand: "BRAND",
+        model: "MODEL",
+        status: "STATUS",
+        country: "COUNTRY",
+        location: "LOCATION",
+        dealer: "DEALER",
+        vehicleId: "ID",
+        description: "DESCRIPTION",
+        noDescription: "No description available for this vehicle.",
+        contact: "CONTACT",
+        call: "CALL",
+        whatsapp: "WHATSAPP",
+        address: "ADDRESS",
+        active: "ACTIVE",
+        loading: "Loading details…",
+        retry: "Retry",
+        detailFailed: "Full details could not be loaded; showing what we have from the list.",
+        imageMissing: "This photo is not on the server",
+        imageSkipped: "Photo failed to load — showing the next one.",
+        allImagesMissing: "Photos of this vehicle are not available on the server.",
+        noImage: "This vehicle has no photo.",
+        persian: "فارسی",
+        english: "English",
+        photoOf: (a, b) => `${a} of ${b}`,
+    };
 }
 
-// onEdit و onManageImages اختیاری هستند: فقط وقتی پنل ادمین این صفحه را
-// باز می‌کند مقدار دارند و یک نوار عملیات ادمین بالای صفحه ظاهر می‌شود.
-// در سایت (Home) مقدار ندارند و هیچ دکمه‌ی ادمینی رندر نمی‌شود.
-function CarDetails({ car, onBack, onEdit, onManageImages }) {
-    const [language, setLanguage] = useState("fa");
-    const [contactOpen, setContactOpen] = useState(false);
+function readStoredLang() {
+    try {
+        const stored =
+            typeof window !== "undefined" && window.localStorage
+                ? window.localStorage.getItem(STORAGE_KEY)
+                : "";
+
+        return stored === "en" ? "en" : "fa";
+    } catch {
+        return "fa";
+    }
+}
+
+function isPrimaryFlag(value) {
+    return value === true || String(value).toLowerCase() === "true";
+}
+
+function toNumber(value) {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function money(value) {
+    const parsed = toNumber(value);
+
+    return parsed === null ? "-" : parsed.toLocaleString("en-US");
+}
+
+function CarDetails({ car, onBack, onContactRequest }) {
+    const [language, setLanguage] = useState(readStoredLang);
 
     const isFa = language === "fa";
+    const labels = useMemo(() => buildLabels(isFa), [isFa]);
+    const viewLabels = isFa ? VIEW_LABELS.fa : VIEW_LABELS.en;
 
-    const labels = isFa
-        ? {
-              back: "← بازگشت به خودروها",
-              premium: "خودروی ویژه",
-              year: "سال",
-              gallery: "گالری خودرو",
-              front: "جلو",
-              side: "بغل",
-              rear: "عقب",
-              interior: "داخل کابین",
-              price: "قیمت",
-              priceNote: "قیمت با احتساب هزینه حمل با لندیکرافت از مبدا می باشد",
-              requestVisit: "درخواست بازدید / تماس",
-              whatsapp: "درخواست در واتساپ",
-              location: "موقعیت",
-              origin: "کشور مبدأ",
-              dealer: "نمایندگی / فروشنده",
-              status: "وضعیت",
-              brand: "برند",
-              model: "مدل",
-              shipping: "هزینه حمل",
-              customs: "هزینه گمرک",
-              customsBuyer: "بعهده خریدار",
-              description: "توضیحات",
-              information: "اطلاعات خودرو",
-              vehicleId: "شناسه خودرو",
-              photoCategories: "دسته‌بندی تصاویر",
-              noImage: "تصویری موجود نیست",
-              active: "فعال",
-              imageAvailable: "تصویر موجود است",
-              editDetails: "ویرایش مشخصات",
-              manageImages: "مدیریت تصاویر",
+    const accent = dealerConfig.primaryColor || "#d4af37";
+    const fontStack = isFa
+        ? "Tahoma, Arial, sans-serif"
+        : "Arial, Helvetica, sans-serif";
 
-              english: "English",
-              persian: "فارسی",
-          }
-        : {
-              back: "← BACK TO VEHICLES",
-              premium: "PREMIUM VEHICLE",
-              year: "YEAR",
-              gallery: "VEHICLE GALLERY",
-              front: "FRONT",
-              side: "SIDE",
-              rear: "REAR",
-              interior: "INTERIOR",
-              price: "PRICE",
-              priceNote: "Price includes shipping with Land Cruiser from origin.",
-              requestVisit: "REQUEST A VISIT",
-              whatsapp: "WHATSAPP REQUEST",
-              location: "LOCATION",
-              origin: "ORIGIN COUNTRY",
-              dealer: "DEALER",
-              status: "STATUS",
-              brand: "BRAND",
-              model: "MODEL",
-              shipping: "SHIPPING COST",
-              customs: "CUSTOMS COST",
-              customsBuyer: "Buyer responsibility",
-              description: "DESCRIPTION",
-              information: "VEHICLE INFORMATION",
-              vehicleId: "VEHICLE ID",
-              photoCategories: "PHOTO CATEGORIES",
-              noImage: "NO IMAGE",
-              active: "ACTIVE",
-              imageAvailable: "IMAGE AVAILABLE",
-              editDetails: "EDIT DETAILS",
-              manageImages: "MANAGE IMAGES",
+    const carId = car?.id;
 
-              english: "English",
-              persian: "فارسی",
-          };
+    // ------------------------------------------------------------
+    // وضعیت‌ها
+    // ------------------------------------------------------------
+    // اصل: هرچه را می‌شود از روی داده‌های دیگر «حساب کرد»، state
+    // نمی‌گیریم (عکس فعال، پیامِ پرش، وضعیت لود). این‌طور هم
+    // رندرِ زنجیره‌ای اضافه نمی‌شود، هم لینتر react-hooks راضی است.
 
-    const images = Array.isArray(car?.images) ? car.images : [];
+    // جزئیات کامل از سرور (توضیحات، تلفن/آدرس نمایندگی، نام برند و مدل)
+    const [detail, setDetail] = useState(null);
+    const [fetchFailed, setFetchFailed] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
 
-    const gallery = useMemo(
-        () => {
-            const sortedImages = images
-                .filter((img) => {
-                    const imageUrl = String(img?.image_url || "").trim();
-                    return imageUrl.length > 0;
-                })
-                .sort((a, b) => {
-                    const aPrimary =
-                        String(a?.id) === String(car?.primary_image_id);
-                    const bPrimary =
-                        String(b?.id) === String(car?.primary_image_id);
+    // گالری
+    const [selected, setSelected] = useState(0); // آنچه کاربر انتخاب کرده
+    const [brokenUrls, setBrokenUrls] = useState(() => []); // عکس‌هایی که ۴۰۴ بودند
+    const [lastSkipped, setLastSkipped] = useState(""); // آخرین عکسی که رد شد
 
-                    if (aPrimary && !bPrimary) return -1;
-                    if (!aPrimary && bPrimary) return 1;
+    // Home آبجکتِ لیست را می‌دهد و بعد از رسیدنِ پاسخ سرور، جزئیاتِ
+    // کامل جای آن را می‌گیرد؛ data همیشه یک آبجکت معتبر است.
+    const data = useMemo(() => detail || car || {}, [detail, car]);
 
-                    return (
-                        Number(a?.sort_order || 0) -
-                        Number(b?.sort_order || 0)
-                    );
-                });
+    useEffect(() => {
+        try {
+            if (typeof window !== "undefined" && window.localStorage) {
+                window.localStorage.setItem(STORAGE_KEY, language);
+            }
+        } catch {
+            // دسترسی به localStorage بسته بود؛ زبان فقط برای همین نمایش می‌ماند.
+        }
+    }, [language]);
 
-            return sortedImages.map((img) => {
-                const viewType =
-                    String(img?.view_type || "").toUpperCase();
+    useEffect(() => {
+        if (!carId) {
+            return undefined;
+        }
 
-                let label;
+        const controller =
+            typeof AbortController !== "undefined" ? new AbortController() : null;
 
-                if (viewType === "INTERIOR") {
-                    label = labels.interior;
-                } else if (
-                    String(img?.id) === String(car?.primary_image_id)
-                ) {
-                    label = isFa ? "تصویر اصلی" : "MAIN IMAGE";
-                } else if (viewType === "FRONT") {
-                    label = labels.front;
-                } else if (viewType === "SIDE") {
-                    label = labels.side;
-                } else if (viewType === "REAR") {
-                    label = labels.rear;
-                } else {
-                    label = isFa ? "تصویر" : "IMAGE";
+        // setState فقط داخل then/catch (یعنی بعد از پاسخ شبکه)،
+        // نه مستقیم در بدنه‌ی effect.
+        fetch(apiUrl(`cars/${carId}`), {
+            signal: controller ? controller.signal : undefined,
+        })
+            .then((res) => {
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
                 }
 
+                return res.json();
+            })
+            .then((payload) => {
+                const fresh = payload?.car || payload;
+
+                if (fresh && typeof fresh === "object") {
+                    setDetail(fresh);
+                    setFetchFailed(false);
+                } else {
+                    setFetchFailed(true);
+                }
+            })
+            .catch((error) => {
+                if (error && error.name === "AbortError") {
+                    return;
+                }
+
+                setFetchFailed(true);
+            });
+
+        return () => {
+            if (controller) {
+                controller.abort();
+            }
+        };
+    }, [carId, reloadKey]);
+
+    // ------------------------------------------------------------
+    // فهرست عکس‌ها: اول عکس اصلی، بعد بقیه بر اساس sort_order
+    // ------------------------------------------------------------
+    const gallery = useMemo(() => {
+        const list = Array.isArray(data?.images) ? data.images : [];
+
+        return list
+            .filter((img) => String(img?.image_url || "").trim().length > 0)
+            .sort((a, b) => {
+                const aPrimary =
+                    isPrimaryFlag(a?.is_primary) ||
+                    String(a?.id) === String(data?.primary_image_id);
+                const bPrimary =
+                    isPrimaryFlag(b?.is_primary) ||
+                    String(b?.id) === String(data?.primary_image_id);
+
+                if (aPrimary && !bPrimary) return -1;
+                if (!aPrimary && bPrimary) return 1;
+
+                return Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+            })
+            .map((img) => {
+                const { label, isPrimary } = labelForImage(img, data, viewLabels);
+
                 return {
-                    key: String(img.id),
+                    key: String(img.id ?? img.image_url),
+                    src: getImageUrl(img.image_url),
                     label,
-                    image: getImageUrl(img.image_url),
+                    isPrimary,
                 };
             });
+    }, [data, viewLabels]);
+
+    // با عوض‌شدن خودرو، انتخاب و فهرست عکس‌های خراب از نو شروع شود.
+    // این الگوی «مقایسه با مقدار قبلی در خودِ رندر» همان روشی است که
+    // مستندات React برای بازنشانی state پیشنهاد می‌دهد؛ برخلاف
+    // useEffect، یک رندرِ اضافه روی دست کاربر نمی‌گذارد.
+    const [prevCarId, setPrevCarId] = useState(carId);
+
+    if (prevCarId !== carId) {
+        setPrevCarId(carId);
+        setSelected(0);
+        setBrokenUrls([]);
+        setLastSkipped("");
+    }
+
+    const brokenSet = useMemo(() => new Set(brokenUrls), [brokenUrls]);
+
+    // ------------------------------------------------------------
+    // قلبِ خواسته‌ی کاربر: عکس خراب → پرش خودکار به عکس سالم بعدی
+    // ------------------------------------------------------------
+    // اگر عکسِ انتخاب‌شده ۴۰۴ باشد، اولین عکس سالمِ بعدی نمایش داده
+    // می‌شود (و اگر به آخر رسیدیم، از اول). این یک مقدارِ محاسبه‌شده
+    // است، نه state؛ پس نه رندر زنجیره‌ای دارد نه تایمر.
+    const {
+        index: activeIndex,
+        skipped: skippedBroken,
+        allBroken,
+    } = pickVisibleIndex(gallery, selected, (src) => brokenSet.has(src));
+
+    const active = gallery.length ? gallery[activeIndex] : null;
+
+    // پیام کوتاهِ روی گالری (همیشه از DOM می‌آید، نه از داخل
+    // placeholder؛ چون متنِ داخل SVG با بزرگ‌شدن کادر بزرگ می‌شود)
+    let notice = "";
+
+    if (gallery.length === 0) {
+        notice = labels.noImage;
+    } else if (allBroken) {
+        notice = labels.allImagesMissing;
+    } else if (skippedBroken && lastSkipped) {
+        notice = labels.imageSkipped;
+    }
+
+    const go = useCallback(
+        (step) => {
+            if (gallery.length < 2) {
+                return;
+            }
+
+            setSelected(
+                (prev) => (Math.min(prev, gallery.length - 1) + step + gallery.length) % gallery.length
+            );
         },
-        [
-            images,
-            car?.primary_image_id,
-            isFa,
-            labels.front,
-            labels.side,
-            labels.rear,
-            labels.interior,
-        ]
+        [gallery.length]
     );
 
-    const primaryImage = images.find(
-        (img) =>
-            String(img?.id) === String(car?.primary_image_id) &&
-            img?.image_url
-    )?.image_url;
+    // SafeImage وقتی فایلی ۴۰۴ شد این‌جا خبر می‌دهد.
+    const handleBroken = useCallback((src) => {
+        if (!src) {
+            return;
+        }
 
-    const firstImage =
-        (primaryImage && getImageUrl(primaryImage)) ||
-        gallery.find((item) => item.image)?.image ||
-        PLACEHOLDER_IMAGE;
+        setBrokenUrls((prev) => (prev.includes(src) ? prev : [...prev, src]));
+        setLastSkipped(src);
+    }, []);
 
-    const [activeImage, setActiveImage] = useState(firstImage);
-
-    // اگر خودرو عوض شود ولی کامپوننت remount نشود، تصویر بزرگ نباید روی
-    // عکس خودروی قبلی بماند.
+    // کیبورد: ← → برای گالری، Esc برای بازگشت
     useEffect(() => {
-        setActiveImage(firstImage);
-    }, [car?.id, firstImage]);
+        if (typeof window === "undefined") {
+            return undefined;
+        }
 
-    const brand = car?.brand_name || car?.brand || "-";
-    const model = car?.model_name || car?.model || "-";
-    const year = car?.year || "-";
+        const onKeyDown = (event) => {
+            const target = event.target;
+            const tag = target && target.tagName ? target.tagName.toLowerCase() : "";
 
-    const price = car?.price_aed
-        ? Number(car.price_aed).toLocaleString("en-US")
-        : "N/A";
+            if (tag === "input" || tag === "textarea" || tag === "select") {
+                return;
+            }
 
-    const shippingCost = car?.shipping_cost
-        ? Number(car.shipping_cost).toLocaleString("en-US")
-        : "0";
+            if (event.key === "Escape") {
+                if (onBack) {
+                    onBack();
+                }
 
-    const description =
-        car?.description ||
-        (isFa
-            ? "توضیحاتی برای این خودرو ثبت نشده است."
-            : "No description available for this vehicle.");
+                return;
+            }
 
-    const status =
-        String(car?.status || "").toUpperCase() === "ACTIVE"
-            ? labels.active
-            : car?.status || "-";
+            if (event.key === "ArrowLeft") {
+                go(isFa ? 1 : -1);
+            } else if (event.key === "ArrowRight") {
+                go(isFa ? -1 : 1);
+            }
+        };
 
-    const carCity = String(car?.city || "").trim();
-    const carCountry = String(car?.country || "").trim();
+        window.addEventListener("keydown", onKeyDown);
 
-    const locationValue =
-        carCity ||
-        (isFa ? dealerConfig.cityFa : dealerConfig.cityEn) ||
-        dealerConfig.city ||
-        "-";
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [go, isFa, onBack]);
 
-    const originValue =
-        carCountry ||
-        (isFa ? dealerConfig.countryFa : dealerConfig.countryEn) ||
-        dealerConfig.country ||
-        "-";
+    // ------------------------------------------------------------
+    // مقدارهای نمایشی
+    // ------------------------------------------------------------
+    const brand = data?.brand_name || data?.brand || "-";
+    const model = data?.model_name || data?.model || "";
+    const year = data?.year || "-";
 
-    const whatsappNumber = String(dealerConfig.whatsapp || "").replace(
-        /[^\d]/g,
-        ""
-    );
+    const statusRaw = String(data?.status || "").toUpperCase();
+    const status = statusRaw === "ACTIVE" ? labels.active : data?.status || "-";
 
-    const whatsappMessage = `سلام، برای خودروی ${brand} ${model}${
-        car?.year ? ` مدل ${car.year}` : ""
-    }${car?.id ? ` (کد ${car.id})` : ""} درخواست بازدید / تماس دارم.`;
+    const location = isFa
+        ? `${data?.city || dealerConfig.cityFa || dealerConfig.city || "-"}${
+              data?.country || dealerConfig.countryFa
+                  ? `، ${data.country || dealerConfig.countryFa}`
+                  : ""
+          }`
+        : `${data?.city || dealerConfig.cityEn || dealerConfig.city || "-"}${
+              data?.country || dealerConfig.countryEn
+                  ? `, ${data.country || dealerConfig.countryEn}`
+                  : ""
+          }`;
 
-    const whatsappHref = whatsappNumber
-        ? `${"ht" + "ps://wa.me"}/${whatsappNumber}?text=${encodeURIComponent(
-              whatsappMessage
-          )}`
-        : "";
+    const dealerName = data?.dealership_name || dealerConfig.name || "-";
+    const phone = String(data?.phone || dealerConfig.phone || "").trim();
+    const address = String(data?.address || "").trim();
+    const whatsappNumber = String(dealerConfig.whatsapp || phone || "").replace(/[^\d]/g, "");
+
+    const description = String(data?.description || "").trim();
+
+    const features = dealerConfig.features || {};
+
+    const specs = [
+        { label: labels.year, value: year },
+        { label: labels.brand, value: brand },
+        { label: labels.model, value: model || "-" },
+        { label: labels.status, value: status },
+        { label: labels.location, value: location },
+        { label: labels.vehicleId, value: data?.id ?? "-" },
+    ];
+
+    const galleryEmpty = gallery.length === 0;
+
+    // فقط آیکون؛ متنِ پیام در نوارِ اطلاعِ روی گالری می‌آید.
+    const emptyPlaceholder = useMemo(() => makePlaceholder({ variant: "dark" }), []);
 
     const direction = isFa ? "rtl" : "ltr";
 
+    const cardStyle = {
+        background: "#0d0d0d",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: "18px",
+        padding: "20px",
+    };
+
     return (
-        <>
-            {/* فونت‌های لوکس از Google Fonts */}
-            <link rel="preconnect" href={"ht" + "tps://fonts.googleapis.com"} />
-            <link
-                rel="preconnect"
-                href={"ht" + "tps://fonts.gstatic.com"}
-                crossOrigin="anonymous"
-            />
-            <link
-                href={
-                    ("ht" + "tps://fonts.googleapis.com/css2?") +
-                    "family=Cormorant+Garamond:wght@500;600;700&" +
-                    "family=Markazi+Text:wght@400;500;600;700&" +
-                    "family=Montserrat:wght@300;400;500;600;700&" +
-                    "family=Playfair+Display:wght@600;700;800&" +
-                    "family=Vazirmatn:wght@300;400;500;700&" +
-                    "display=swap"
-                }
-                rel="stylesheet"
-            />
-
-            {/* چیدمان ریسپانسیو */}
-            <style>{`
-                .lux-info-grid {
-                    display: grid;
-                    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
-                    gap: 24px;
-                    align-items: start;
-                }
-                .lux-info-items {
-                    display: grid;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                    gap: 20px;
-                }
-                .lux-gold-text {
-                    background: linear-gradient(120deg, #f9e9a0 0%, #d4af37 45%, #a97f2f 100%);
-                    -webkit-background-clip: text;
-                    background-clip: text;
-                    color: transparent;
-                }
-                @media (max-width: 1020px) {
-                    .lux-info-grid { grid-template-columns: 1fr; }
-                }
-                @media (max-width: 620px) {
-                    .lux-info-items { grid-template-columns: 1fr; }
-                    .lux-title-row { row-gap: 10px; }
-                }
-            `}</style>
-
+        // لایه‌ی ثابت: Home این صفحه را داخل یک div با padding:30px
+        // رندر می‌کند؛ با overlay تمام صفحه مالِ جزئیات می‌شود و
+        // تکرارِ پس‌زمینه و حاشیه از بین می‌رود.
+        <div
+            dir={direction}
+            style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 50,
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                background: "linear-gradient(180deg, #050505 0%, #0b0b0b 100%)",
+                color: "#fff",
+                fontFamily: fontStack,
+            }}
+        >
             <div
-                dir={direction}
                 style={{
-                    minHeight: "100vh",
-                    background:
-                        "radial-gradient(1100px 520px at 50% -8%, rgba(212,175,55,0.10), transparent 62%), linear-gradient(180deg, #060606 0%, #0a0a0a 100%)",
-                    color: "#fff",
-                    fontFamily: bodyFont(isFa),
-                    padding: "26px",
-                    boxSizing: "border-box",
+                    maxWidth: "1180px",
+                    margin: "0 auto",
+                    padding: "18px 18px 44px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "18px",
                 }}
             >
-                <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-                    {/* TOP BAR */}
+                {/* ==================== نوار بالا ==================== */}
 
-                    <div
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        flexWrap: "wrap",
+                    }}
+                >
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (onBack) {
+                                onBack();
+                            } else if (typeof window !== "undefined") {
+                                window.history.back();
+                            }
+                        }}
                         style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: "16px",
-                            marginBottom: "26px",
-                            flexWrap: "wrap",
+                            padding: "10px 18px",
+                            border: "1px solid rgba(255,255,255,0.16)",
+                            borderRadius: "10px",
+                            background: "#fff",
+                            color: "#050505",
+                            cursor: "pointer",
+                            fontSize: isFa ? "14px" : "12px",
+                            fontWeight: 800,
+                            fontFamily: fontStack,
+                            letterSpacing: isFa ? 0 : "1px",
                         }}
                     >
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (onBack) {
-                                    onBack();
-                                } else {
-                                    window.history.back();
-                                }
-                            }}
-                            style={{
-                                padding: "13px 22px",
-                                border: "1px solid rgba(255,255,255,0.28)",
-                                borderRadius: "12px",
-                                background:
-                                    "linear-gradient(180deg, #faf5e8 0%, #ece0c4 100%)",
-                                color: "#171104",
-                                cursor: "pointer",
-                                fontSize: isFa ? "15px" : "12px",
-                                fontWeight: 800,
-                                letterSpacing: isFa ? "0" : "1px",
-                                fontFamily: bodyFont(isFa),
-                                boxShadow: "0 12px 26px rgba(0,0,0,0.35)",
-                            }}
-                        >
-                            {labels.back}
-                        </button>
+                        {isFa ? "→ " : "← "}
+                        {labels.back}
+                    </button>
 
-                        {(onEdit || onManageImages) ? (
-                            <div
-                                style={{
-                                    display: "flex",
-                                    gap: "8px",
-                                    flexWrap: "wrap",
-                                    marginInlineStart: "auto",
-                                }}
-                            >
-                                {onEdit ? (
-                                    <button
-                                        type="button"
-                                        onClick={onEdit}
-                                        style={{
-                                            padding: "13px 18px",
-                                            border: `1px solid ${GOLD_DIM}`,
-                                            borderRadius: "12px",
-                                            background: "transparent",
-                                            color: GOLD_TEXT,
-                                            cursor: "pointer",
-                                            fontSize: isFa ? "14px" : "12px",
-                                            fontWeight: 800,
-                                            letterSpacing: isFa ? "0" : "1px",
-                                            fontFamily: bodyFont(isFa),
-                                        }}
-                                    >
-                                        {labels.editDetails}
-                                    </button>
-                                ) : null}
+                    <LangToggle
+                        language={language}
+                        onChange={setLanguage}
+                        accent={accent}
+                        labels={labels}
+                    />
+                </div>
 
-                                {onManageImages ? (
-                                    <button
-                                        type="button"
-                                        onClick={onManageImages}
-                                        style={{
-                                            padding: "13px 18px",
-                                            border: "1px solid rgba(255,255,255,0.28)",
-                                            borderRadius: "12px",
-                                            background:
-                                                "linear-gradient(180deg, #faf5e8 0%, #ece0c4 100%)",
-                                            color: "#171104",
-                                            cursor: "pointer",
-                                            fontSize: isFa ? "14px" : "12px",
-                                            fontWeight: 800,
-                                            letterSpacing: isFa ? "0" : "1px",
-                                            fontFamily: bodyFont(isFa),
-                                        }}
-                                    >
-                                        {labels.manageImages}
-                                    </button>
-                                ) : null}
-                            </div>
-                        ) : null}
+                {/* ==================== هدر جمع‌وجور ==================== */}
 
+                <section
+                    style={{
+                        ...cardStyle,
+                        background: "linear-gradient(135deg, #121212 0%, #080808 100%)",
+                        border: `1px solid ${hexToRgba(accent, 0.22)}`,
+                        padding: "22px",
+                        display: "flex",
+                        alignItems: "flex-end",
+                        justifyContent: "space-between",
+                        gap: "18px",
+                        flexWrap: "wrap",
+                    }}
+                >
+                    <div style={{ minWidth: 0, flex: "1 1 320px" }}>
                         <div
                             style={{
-                                display: "flex",
-                                gap: "6px",
-                                padding: "4px",
-                                background: "rgba(255,255,255,0.045)",
-                                border: `1px solid ${GOLD_FAINT}`,
-                                borderRadius: "12px",
+                                color: accent,
+                                fontSize: isFa ? "12px" : "10px",
+                                fontWeight: 900,
+                                letterSpacing: isFa ? 0 : "2px",
+                                marginBottom: "8px",
                             }}
                         >
-                            <button
-                                type="button"
-                                onClick={() => setLanguage("fa")}
-                                style={{
-                                    border: "none",
-                                    borderRadius: "9px",
-                                    padding: "9px 14px",
-                                    cursor: "pointer",
-                                    background:
-                                        language === "fa" ? GOLD : "transparent",
-                                    color:
-                                        language === "fa" ? "#171104" : "#aaa",
-                                    fontWeight: 800,
-                                    fontSize: "12px",
-                                    fontFamily: bodyFont(isFa),
-                                }}
-                            >
-                                {labels.persian}
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => setLanguage("en")}
-                                style={{
-                                    border: "none",
-                                    borderRadius: "9px",
-                                    padding: "9px 14px",
-                                    cursor: "pointer",
-                                    background:
-                                        language === "en" ? GOLD : "transparent",
-                                    color:
-                                        language === "en" ? "#171104" : "#aaa",
-                                    fontWeight: 800,
-                                    fontSize: "12px",
-                                    fontFamily: bodyFont(isFa),
-                                }}
-                            >
-                                {labels.english}
-                            </button>
+                            {labels.premium}
                         </div>
-                    </div>
 
-                    {/* HEADER — برند و مدل لوکس */}
-
-                    <section
-                        style={{
-                            position: "relative",
-                            overflow: "hidden",
-                            background:
-                                "linear-gradient(135deg, #16130c 0%, #0b0906 55%, #151006 100%)",
-                            border: "1px solid rgba(212,175,55,0.22)",
-                            borderRadius: "28px",
-                            padding: "38px 36px",
-                            marginBottom: "24px",
-                            boxShadow:
-                                "0 30px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
-                        }}
-                    >
-                        <div
+                        <h1
                             style={{
-                                position: "absolute",
-                                top: -120,
-                                insetInlineStart: -80,
-                                width: 340,
-                                height: 340,
-                                background:
-                                    "radial-gradient(circle, rgba(212,175,55,0.16), transparent 65%)",
-                                pointerEvents: "none",
+                                margin: 0,
+                                // index.css روی همه‌ی h1ها رنگ تیره‌ی قالب
+                                // پیش‌فرض را می‌گذارد؛ این‌جا پوسته تیره است
+                                // پس رنگ روشن را صریح می‌دهیم.
+                                color: "#fff",
+                                fontSize: isFa ? "27px" : "30px",
+                                lineHeight: 1.2,
+                                fontWeight: 900,
+                                wordBreak: "break-word",
                             }}
-                        />
-
-                        <div
-                            style={{
-                                position: "absolute",
-                                bottom: -140,
-                                insetInlineEnd: -60,
-                                width: 380,
-                                height: 380,
-                                background:
-                                    "radial-gradient(circle, rgba(212,175,55,0.10), transparent 65%)",
-                                pointerEvents: "none",
-                            }}
-                        />
+                        >
+                            {brand}
+                            {model ? ` ${model}` : ""}
+                        </h1>
 
                         <div
                             style={{
                                 display: "flex",
                                 alignItems: "center",
-                                gap: "12px",
-                                color: GOLD_DIM,
-                                fontSize: isFa ? "15px" : "11px",
-                                fontWeight: 800,
-                                letterSpacing: isFa ? "0" : "3px",
-                                marginBottom: "16px",
-                                position: "relative",
+                                gap: "8px",
+                                flexWrap: "wrap",
+                                marginTop: "12px",
                             }}
                         >
-                            <span
-                                style={{
-                                    width: "36px",
-                                    height: "1.5px",
-                                    background: `linear-gradient(90deg, ${GOLD}, transparent)`,
-                                }}
-                            />
-                            {labels.premium}
-                            <span
-                                style={{
-                                    flex: 1,
-                                    height: "1.5px",
-                                    background:
-                                        "linear-gradient(90deg, rgba(212,175,55,0.5), transparent)",
-                                }}
-                            />
+                            <Chip text={String(year)} accent={accent} strong />
+                            <Chip text={status} />
+                            <Chip text={location} />
+                        </div>
+                    </div>
+
+                    <div
+                        dir="ltr"
+                        style={{
+                            textAlign: direction === "rtl" ? "left" : "right",
+                            minWidth: 0,
+                        }}
+                    >
+                        <div
+                            style={{
+                                color: "#777",
+                                fontSize: isFa ? "12px" : "10px",
+                                fontWeight: 800,
+                                letterSpacing: isFa ? 0 : "1.6px",
+                                marginBottom: "6px",
+                            }}
+                        >
+                            {labels.price}
                         </div>
 
                         <div
-                            className="lux-title-row"
                             style={{
-                                display: "flex",
-                                alignItems: "flex-end",
-                                gap: "14px",
-                                flexWrap: "wrap",
-                                position: "relative",
+                                fontSize: isFa ? "28px" : "30px",
+                                fontWeight: 900,
+                                color: accent,
+                                lineHeight: 1.1,
                             }}
                         >
-                            <h1
-                                className="lux-gold-text"
-                                style={{
-                                    margin: 0,
-                                    fontSize: isFa
-                                        ? "clamp(26px, 6.5vw, 46px)"
-                                        : "clamp(30px, 6vw, 52px)",
-                                    lineHeight: 1.1,
-                                    fontWeight: 800,
-                                    fontFamily: headingFont(isFa),
-                                    minWidth: 0,
-                                    overflowWrap: "break-word",
-                                }}
-                            >
-                                {brand}
-                            </h1>
-
+                            {money(data?.price_aed)}
                             <span
                                 style={{
-                                    color: GOLD_DIM,
-                                    fontSize: "clamp(22px, 4vw, 34px)",
-                                    fontWeight: 300,
-                                    lineHeight: 1,
-                                }}
-                            >
-                                /
-                            </span>
-
-                            <h2
-                                style={{
-                                    margin: 0,
-                                    fontSize: isFa
-                                        ? "clamp(24px, 6vw, 40px)"
-                                        : "clamp(26px, 5.5vw, 46px)",
-                                    lineHeight: 1.1,
-                                    fontWeight: 700,
-                                    fontFamily: headingFont(isFa),
-                                    color: "#f5ead2",
-                                    minWidth: 0,
-                                    overflowWrap: "break-word",
-                                }}
-                            >
-                                {model}
-                            </h2>
-
-                            <div
-                                style={{
-                                    marginInlineStart: "auto",
-                                    padding: "12px 20px",
-                                    borderRadius: "12px",
-                                    background:
-                                        "linear-gradient(135deg, #eed77f 0%, #c9a227 100%)",
-                                    color: "#171104",
-                                    fontSize: isFa ? "16px" : "15px",
+                                    fontSize: "13px",
+                                    color: "#999",
+                                    marginInlineStart: "6px",
                                     fontWeight: 800,
-                                    letterSpacing: "1px",
-                                    boxShadow:
-                                        "0 10px 26px rgba(212,175,55,0.30)",
-                                    fontFamily: bodyFont(isFa),
                                 }}
                             >
-                                {year}
-                            </div>
+                                {dealerConfig.currency}
+                            </span>
                         </div>
-                    </section>
+                    </div>
+                </section>
 
-                    {/* GALLERY — قاب طلایی لوکس */}
+                {/* ==================== بدنه: گالری + اطلاعات ==================== */}
 
-                    <section style={{ ...cardStyle, padding: "26px", marginBottom: "24px" }}>
-                        <SectionTitle label={labels.gallery} isFa={isFa} />
+                <div
+                    className="cd-grid"
+                    style={{
+                        display: "grid",
+                        gap: "18px",
+                        alignItems: "start",
+                        // تعداد ستون‌ها در App.css است تا در موبایل
+                        // با media query به یک ستون تبدیل شود.
+                    }}
+                >
+                    {/* ---------- گالری ---------- */}
 
-                        <div style={goldFrame}>
-                            <div
-                                style={{
-                                    borderRadius: "24px",
-                                    overflow: "hidden",
-                                    background:
-                                        "radial-gradient(ellipse at 50% 30%, #18150e 0%, #070707 70%)",
-                                    height: "clamp(300px, 56vw, 520px)",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    position: "relative",
-                                    boxSizing: "border-box",
-                                    padding: "22px",
-                                }}
-                            >
-                                <img
-                                    src={activeImage}
-                                    alt={`${brand} ${model}`}
-                                    onError={(e) => {
-                                        if (e.currentTarget.src !== PLACEHOLDER_IMAGE) {
-                                            e.currentTarget.src = PLACEHOLDER_IMAGE;
-                                        }
-                                    }}
-                                    style={{
-                                        // بدون بزرگ‌نمایی: عکس فقط تا اندازه‌ی طبیعی خودش
-                                        // نمایش داده می‌شود؛ اگر از قاب بزرگ‌تر بود
-                                        // کوچک می‌شود. نتیجه: هرگز کشیده یا تار نمی‌شود.
-                                        maxWidth: "100%",
-                                        maxHeight: "100%",
-                                        width: "auto",
-                                        height: "auto",
-                                        objectFit: "contain",
-                                        display: "block",
-                                        borderRadius: "10px",
-                                        boxShadow:
-                                            "0 18px 50px rgba(0,0,0,0.55)",
-                                    }}
-                                />
+                    <section style={cardStyle}>
+                        <SectionHead
+                            text={labels.gallery}
+                            isFa={isFa}
+                            right={
+                                gallery.length > 1
+                                    ? labels.photoOf(activeIndex + 1, gallery.length)
+                                    : ""
+                            }
+                        />
 
-                                <div
+                        <div
+                            className="cd-main"
+                            style={{
+                                position: "relative",
+                                width: "100%",
+                                aspectRatio: "16 / 10",
+                                borderRadius: "14px",
+                                overflow: "hidden",
+                                background: "#070707",
+                                border: "1px solid rgba(255,255,255,0.06)",
+                            }}
+                        >
+                            {galleryEmpty || allBroken ? (
+                                <span
+                                    aria-hidden="true"
                                     style={{
                                         position: "absolute",
                                         inset: 0,
-                                        pointerEvents: "none",
-                                        background:
-                                            "radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,0.42) 100%)",
+                                        display: "block",
+                                        backgroundImage: `url("${emptyPlaceholder}")`,
+                                        backgroundSize: "cover",
+                                        backgroundPosition: "center",
                                     }}
                                 />
-                            </div>
-                        </div>
+                            ) : (
+                                <SafeImage
+                                    key={active ? active.src : "none"}
+                                    src={active ? active.src : ""}
+                                    alt={`${brand} ${model}`}
+                                    variant="dark"
+                                    fit="contain"
+                                    title={labels.imageMissing}
+                                    showMessage
+                                    onError={handleBroken}
+                                />
+                            )}
 
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns:
-                                    "repeat(auto-fit, minmax(130px, 1fr))",
-                                gap: "10px",
-                                width: "100%",
-                            }}
-                        >
-                            {gallery.map((item) => (
-                                <button
-                                    key={item.key}
-                                    type="button"
-                                    onClick={() => {
-                                        if (item.image) {
-                                            setActiveImage(item.image);
-                                        }
-                                    }}
+                            {gallery.length > 1 ? (
+                                <>
+                                    <NavButton
+                                        side="start"
+                                        dir={direction}
+                                        step={-1}
+                                        onClick={go}
+                                        accent={accent}
+                                    />
+                                    <NavButton
+                                        side="end"
+                                        dir={direction}
+                                        step={1}
+                                        onClick={go}
+                                        accent={accent}
+                                    />
+                                </>
+                            ) : null}
+
+                            {notice ? (
+                                <div
+                                    role="status"
+                                    className="cd-notice"
                                     style={{
-                                        position: "relative",
-                                        width: "100%",
-                                        aspectRatio: "16 / 10",
-                                        border:
-                                            activeImage === item.image
-                                                ? `2px solid ${GOLD}`
-                                                : "1px solid rgba(255,255,255,0.10)",
-                                        borderRadius: "14px",
+                                        position: "absolute",
+                                        bottom: "12px",
+                                        left: "50%",
+                                        transform: "translateX(-50%)",
+                                        padding: "8px 14px",
+                                        borderRadius: "999px",
+                                        background: "rgba(0,0,0,0.72)",
+                                        border: "1px solid rgba(255,255,255,0.16)",
+                                        color: "#eee",
+                                        fontSize: isFa ? "12px" : "11px",
+                                        fontWeight: 700,
+                                        whiteSpace: "nowrap",
+                                        maxWidth: "92%",
                                         overflow: "hidden",
-                                        padding: 0,
-                                        background: "#12100c",
-                                        cursor: item.image ? "pointer" : "default",
-                                        boxShadow:
-                                            activeImage === item.image
-                                                ? "0 10px 28px rgba(212,175,55,0.28)"
-                                                : "none",
-                                        transition:
-                                            "transform 0.25s ease, box-shadow 0.25s ease",
+                                        textOverflow: "ellipsis",
                                     }}
                                 >
-                                    {item.image ? (
-                                        <img
-                                            src={item.image}
-                                            alt={item.label}
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = "none";
-                                            }}
+                                    {notice}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        {/* بندانگشتی‌ها */}
+
+                        {gallery.length > 1 ? (
+                            <div
+                                className="cd-thumbs"
+                                style={{
+                                    display: "flex",
+                                    gap: "9px",
+                                    marginTop: "12px",
+                                    overflowX: "auto",
+                                    paddingBottom: "4px",
+                                }}
+                            >
+                                {gallery.map((item, index) => {
+                                    const isBroken = brokenSet.has(item.src);
+                                    const isActive = index === activeIndex;
+
+                                    return (
+                                        <button
+                                            key={item.key}
+                                            type="button"
+                                            onClick={() => setSelected(index)}
+                                            aria-label={item.label}
+                                            aria-current={isActive}
                                             style={{
-                                                width: "100%",
-                                                height: "100%",
-                                                objectFit: "cover",
-                                                display: "block",
+                                                position: "relative",
+                                                flex: "0 0 auto",
+                                                width: "104px",
+                                                height: "72px",
+                                                padding: 0,
+                                                cursor: "pointer",
+                                                border: isActive
+                                                    ? `2px solid ${accent}`
+                                                    : "1px solid #262626",
+                                                borderRadius: "10px",
+                                                overflow: "hidden",
+                                                background: "#111",
+                                                opacity: isBroken ? 0.55 : 1,
                                             }}
+                                        >
+                                            <SafeImage
+                                                src={item.src}
+                                                alt={item.label}
+                                                variant="dark"
+                                                fit="cover"
+                                                onError={handleBroken}
+                                            />
+
+                                            <span
+                                                style={{
+                                                    position: "absolute",
+                                                    insetInline: 0,
+                                                    bottom: 0,
+                                                    padding: "10px 6px 4px",
+                                                    background:
+                                                        "linear-gradient(transparent, rgba(0,0,0,0.88))",
+                                                    color: isBroken ? "#c9a227" : "#fff",
+                                                    fontSize: "10px",
+                                                    fontWeight: 800,
+                                                    textAlign: "center",
+                                                    pointerEvents: "none",
+                                                }}
+                                            >
+                                                {isBroken ? labels.imageMissing : item.label}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : null}
+
+                        {!detail && !fetchFailed && gallery.length === 0 ? (
+                            <div style={{ marginTop: "12px", color: "#888", fontSize: "13px" }}>
+                                {labels.loading}
+                            </div>
+                        ) : null}
+                    </section>
+
+                    {/* ---------- ستون اطلاعات (بدون تکرار) ---------- */}
+
+                    <div
+                        className="cd-side"
+                        style={{ display: "flex", flexDirection: "column", gap: "18px" }}
+                    >
+                        {/* هزینه‌های جانبی — قیمت در هدر آمده، پس این‌جا تکرار نمی‌شود */}
+
+                        {features.shipping !== false || features.customs !== false ? (
+                            <section style={cardStyle}>
+                                <SectionHead text={labels.costs} isFa={isFa} />
+
+                                <div style={{ display: "flex", flexDirection: "column" }}>
+                                    {features.shipping !== false ? (
+                                        <Row
+                                            label={labels.shipping}
+                                            value={`${money(data?.shipping_cost)} ${dealerConfig.currency}`}
+                                            isFa={isFa}
+                                            last={features.customs === false}
                                         />
                                     ) : null}
 
-                                    <div
-                                        style={{
-                                            position: "absolute",
-                                            left: 0,
-                                            right: 0,
-                                            bottom: 0,
-                                            padding: "8px",
-                                            background:
-                                                "linear-gradient(transparent, rgba(0,0,0,.85))",
-                                            color: "#f0e6c8",
-                                            fontSize: isFa ? "13px" : "11px",
-                                            fontWeight: 700,
-                                            fontFamily: bodyFont(isFa),
-                                        }}
-                                    >
-                                        {item.label}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </section>
-
-                    {/* INFORMATION */}
-
-                    <section className="lux-info-grid">
-                        <div style={{ ...cardStyle, padding: "28px" }}>
-                            {/* PRICE */}
-
-                            <div
-                                style={{
-                                    paddingBottom: "24px",
-                                    marginBottom: "24px",
-                                    borderBottom: "1px solid rgba(212,175,55,0.15)",
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        color: GOLD_DIM,
-                                        fontSize: isFa ? "14px" : "10px",
-                                        fontWeight: 800,
-                                        letterSpacing: isFa ? "0" : "2.5px",
-                                        marginBottom: "8px",
-                                        fontFamily: bodyFont(isFa),
-                                        textAlign: "center",
-                                    }}
-                                >
-                                    {labels.price}
-                                </div>
-
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "baseline",
-                                        justifyContent: "center",
-                                        gap: "10px",
-                                        flexWrap: "wrap",
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: isFa ? "46px" : "44px",
-                                            fontWeight: 800,
-                                            fontFamily: headingFont(isFa),
-                                            color: "#f7ecd2",
-                                            lineHeight: 1,
-                                        }}
-                                    >
-                                        {price}
-                                    </span>
-
-                                    <span
-                                        style={{
-                                            fontSize: isFa ? "16px" : "13px",
-                                            fontWeight: 700,
-                                            color: GOLD_TEXT,
-                                            letterSpacing: "1px",
-                                        }}
-                                    >
-                                        {dealerConfig.currency}
-                                    </span>
-                                </div>
-
-                                <div
-                                    style={{
-                                        marginTop: "10px",
-                                        color: "#9b8f76",
-                                        fontSize: isFa ? "13px" : "11px",
-                                        fontWeight: 500,
-                                        lineHeight: 1.9,
-                                        textAlign: "center",
-                                    }}
-                                >
-                                    {labels.priceNote}
-                                </div>
-
-                                <div
-                                    style={{
-                                        display: "grid",
-                                        gridTemplateColumns:
-                                            "repeat(auto-fit, minmax(160px, 1fr))",
-                                        gap: "12px",
-                                        marginTop: "20px",
-                                    }}
-                                >
-                                    <a
-                                        href={whatsappHref || undefined}
-                                        target={whatsappHref ? "_blank" : undefined}
-                                        rel={whatsappHref ? "noreferrer" : undefined}
-                                        onClick={(event) => {
-                                            if (!whatsappHref) {
-                                                event.preventDefault();
-                                                setContactOpen(true);
-                                            }
-                                        }}
-                                        style={{
-                                            display: "block",
-                                            padding: "15px 12px",
-                                            textAlign: "center",
-                                            textDecoration: "none",
-                                            border: "1px solid rgba(212,175,55,0.75)",
-                                            borderRadius: "12px",
-                                            background:
-                                                "linear-gradient(135deg, #eed77f 0%, #c9a227 55%, #a97f2f 100%)",
-                                            color: "#171104",
-                                            fontSize: isFa ? "15px" : "12px",
-                                            fontWeight: 800,
-                                            letterSpacing: isFa ? "0" : "1px",
-                                            cursor: "pointer",
-                                            fontFamily: bodyFont(isFa),
-                                            boxShadow:
-                                                "0 14px 30px rgba(212,175,55,0.22), inset 0 1px 0 rgba(255,255,255,0.55)",
-                                        }}
-                                    >
-                                        {labels.whatsapp}
-                                    </a>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setContactOpen(true)}
-                                        style={{
-                                            padding: "15px 12px",
-                                            border: "1px solid rgba(255,255,255,0.22)",
-                                            borderRadius: "12px",
-                                            background:
-                                                "linear-gradient(180deg, #faf5e8 0%, #ece0c4 100%)",
-                                            color: "#171104",
-                                            fontSize: isFa ? "15px" : "12px",
-                                            fontWeight: 800,
-                                            letterSpacing: isFa ? "0" : "1px",
-                                            fontFamily: bodyFont(isFa),
-                                            cursor: "pointer",
-                                            boxShadow: "0 12px 26px rgba(0,0,0,0.30)",
-                                        }}
-                                    >
-                                        {labels.requestVisit}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* BASIC INFO */}
-
-                            <div className="lux-info-items">
-                                <Info label={labels.location} value={locationValue} isFa={isFa} />
-                                <Info label={labels.origin} value={originValue} isFa={isFa} />
-                                <Info label={labels.dealer} value={dealerConfig.name} isFa={isFa} />
-                                <Info label={labels.status} value={status} isFa={isFa} />
-                                <Info label={labels.year} value={year} isFa={isFa} />
-                                <Info label={labels.brand} value={brand} isFa={isFa} />
-                                <Info label={labels.model} value={model} isFa={isFa} />
-                                <Info label={labels.vehicleId} value={car?.id ?? "-"} isFa={isFa} />
-                            </div>
-
-                            {/* DESCRIPTION */}
-
-                            <div
-                                style={{
-                                    marginTop: "26px",
-                                    paddingTop: "24px",
-                                    borderTop: "1px solid rgba(212,175,55,0.15)",
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        color: GOLD_DIM,
-                                        fontSize: isFa ? "14px" : "10px",
-                                        fontWeight: 800,
-                                        letterSpacing: isFa ? "0" : "2.5px",
-                                        marginBottom: "12px",
-                                        fontFamily: bodyFont(isFa),
-                                    }}
-                                >
-                                    {labels.description}
-                                </div>
-
-                                <div
-                                    style={{
-                                        color: "#e6dcc3",
-                                        fontSize: isFa ? "19px" : "15px",
-                                        lineHeight: 2,
-                                        fontWeight: isFa ? 500 : 400,
-                                        fontFamily: headingFont(isFa),
-                                    }}
-                                >
-                                    {description}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* RIGHT INFORMATION */}
-
-                        <aside style={{ ...cardStyle, padding: "28px" }}>
-                            <SectionTitle label={labels.information} isFa={isFa} />
-
-                            <DetailRow label={labels.brand} value={brand} isFa={isFa} />
-                            <DetailRow label={labels.model} value={model} isFa={isFa} />
-                            <DetailRow label={labels.year} value={year} isFa={isFa} />
-                            <DetailRow label={labels.location} value={locationValue} isFa={isFa} />
-                            <DetailRow label={labels.origin} value={originValue} isFa={isFa} />
-                            <DetailRow label={labels.dealer} value={dealerConfig.name} isFa={isFa} />
-                            <DetailRow label={labels.status} value={status} isFa={isFa} />
-                            <DetailRow
-                                label={labels.price}
-                                value={`${price} ${dealerConfig.currency}`}
-                                isFa={isFa}
-                            />
-                            <DetailRow label={labels.vehicleId} value={car?.id ?? "-"} isFa={isFa} />
-                            <DetailRow
-                                label={labels.shipping}
-                                value={`${shippingCost} ${dealerConfig.currency}`}
-                                isFa={isFa}
-                            />
-                            <DetailRow label={labels.customs} value={labels.customsBuyer} isFa={isFa} />
-                        </aside>
-                    </section>
-
-                    {/* PHOTO CATEGORIES */}
-
-                    <section style={{ ...cardStyle, padding: "28px", marginTop: "24px" }}>
-                        <SectionTitle label={labels.photoCategories} isFa={isFa} />
-
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                                gap: "12px",
-                            }}
-                        >
-                            {gallery.map((item) => (
-                                <div
-                                    key={`category-${item.key}`}
-                                    style={{
-                                        padding: "18px",
-                                        border: `1px solid ${GOLD_FAINT}`,
-                                        borderRadius: "14px",
-                                        background: "rgba(0,0,0,0.32)",
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            color: GOLD_TEXT,
-                                            fontSize: isFa ? "17px" : "12px",
-                                            fontWeight: 700,
-                                            fontFamily: headingFont(isFa),
-                                            marginBottom: "10px",
-                                        }}
-                                    >
-                                        {item.label}
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "8px",
-                                            color: item.image ? "#d9cfae" : "#6b6452",
-                                            fontSize: isFa ? "13px" : "11px",
-                                            fontFamily: bodyFont(isFa),
-                                        }}
-                                    >
-                                        <span
-                                            style={{
-                                                width: "7px",
-                                                height: "7px",
-                                                borderRadius: "50%",
-                                                background: item.image ? GOLD : "#4a4536",
-                                            }}
+                                    {features.customs !== false ? (
+                                        // طبق تصمیم کاربر: مبلغ گمرک در مجموع
+                                        // نمی‌آید و همان «بعهده خریدار» می‌ماند.
+                                        <Row
+                                            label={labels.customs}
+                                            value={labels.customsBuyer}
+                                            isFa={isFa}
+                                            last
                                         />
-                                        {item.image ? labels.imageAvailable : labels.noImage}
-                                    </div>
+                                    ) : null}
                                 </div>
-                            ))}
-                        </div>
-                    </section>
+                            </section>
+                        ) : null}
+
+                        {/* مشخصات */}
+
+                        <section style={cardStyle}>
+                            <SectionHead text={labels.specs} isFa={isFa} />
+
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                                    gap: "14px 12px",
+                                }}
+                            >
+                                {specs.map((item) => (
+                                    <Field
+                                        key={item.label}
+                                        label={item.label}
+                                        value={item.value}
+                                        isFa={isFa}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* نمایندگی / تماس + درخواست بازدید */}
+
+                        <section style={cardStyle}>
+                            <SectionHead text={labels.dealer} isFa={isFa} />
+
+                            <div
+                                style={{
+                                    color: "#eee",
+                                    fontSize: isFa ? "16px" : "14px",
+                                    fontWeight: 800,
+                                    marginBottom: address || phone ? "8px" : 0,
+                                }}
+                            >
+                                {dealerName}
+                            </div>
+
+                            {address ? (
+                                <div
+                                    style={{
+                                        color: "#999",
+                                        fontSize: isFa ? "13px" : "12px",
+                                        lineHeight: 1.8,
+                                        marginBottom: phone ? "12px" : 0,
+                                    }}
+                                >
+                                    {address}
+                                </div>
+                            ) : null}
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                {phone ? (
+                                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                                        <a
+                                            href={`tel:${phone}`}
+                                            dir="ltr"
+                                            style={{
+                                                ...buttonBase,
+                                                background: accent,
+                                                color: "#050505",
+                                                borderColor: accent,
+                                            }}
+                                        >
+                                            {labels.call} ·{" "}
+                                            <span dir="ltr" style={{ unicodeBidi: "isolate" }}>
+                                                {phone}
+                                            </span>
+                                        </a>
+
+                                        {features.whatsapp && whatsappNumber ? (
+                                            <a
+                                                href={`https://wa.me/${whatsappNumber}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                style={{
+                                                    ...buttonBase,
+                                                    background: "transparent",
+                                                    color: "#eee",
+                                                }}
+                                            >
+                                                {labels.whatsapp}
+                                            </a>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (onContactRequest) onContactRequest(data);
+                                    }}
+                                    style={{
+                                        width: "100%",
+                                        height: "46px",
+                                        borderRadius: "12px",
+                                        border: "1px solid #d4af37",
+                                        background: "linear-gradient(135deg, #e8d27a 0%, #d4af37 25%, #c9a45c 50%, #a9823f 100%)",
+                                        color: "#111",
+                                        fontSize: "13px",
+                                        fontWeight: 900,
+                                        cursor: "pointer",
+                                        fontFamily: "inherit",
+                                        boxShadow: "0 8px 22px rgba(212,175,55,0.28), inset 0 1px 0 rgba(255,255,255,0.4)",
+                                        transition: "filter 0.2s ease",
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(1.08)")}
+                                    onMouseLeave={(e) => (e.currentTarget.style.filter = "brightness(1)")}
+                                >
+                                    تماس / درخواست بازدید
+                                </button>
+                            </div>
+                        </section>
+
+                        {/* توضیحات */}
+
+                        <section style={cardStyle}>
+                            <SectionHead text={labels.description} isFa={isFa} />
+
+                            <div
+                                style={{
+                                    color: "#ccc",
+                                    fontSize: isFa ? "15px" : "13px",
+                                    lineHeight: 1.9,
+                                    wordBreak: "break-word",
+                                }}
+                            >
+                                {description || labels.noDescription}
+                            </div>
+                        </section>
+
+                        {fetchFailed ? (
+                            <div
+                                style={{
+                                    ...cardStyle,
+                                    padding: "14px 16px",
+                                    borderColor: "rgba(255,255,255,0.12)",
+                                    color: "#999",
+                                    fontSize: "12px",
+                                    lineHeight: 1.8,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: "10px",
+                                }}
+                            >
+                                <span>{labels.detailFailed}</span>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setReloadKey((prev) => prev + 1)}
+                                    style={{
+                                        ...buttonBase,
+                                        padding: "7px 12px",
+                                        fontSize: "11px",
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    {labels.retry}
+                                </button>
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
-
-                {/* VISIT / CONTACT MODAL */}
-
-                {contactOpen ? (
-                    <ContactModal car={car} onClose={() => setContactOpen(false)} />
-                ) : null}
-            </div>
-        </>
-    );
-}
-
-function Info({ label, value, isFa }) {
-    return (
-        <div style={{ minWidth: 0 }}>
-            <div
-                style={{
-                    color: GOLD_DIM,
-                    fontSize: isFa ? "12px" : "10px",
-                    fontWeight: 800,
-                    letterSpacing: isFa ? "0" : "1.6px",
-                    marginBottom: "8px",
-                    fontFamily: bodyFont(isFa),
-                }}
-            >
-                {label}
-            </div>
-
-            <div
-                style={{
-                    color: "#f3ead6",
-                    fontSize: isFa ? "20px" : "16px",
-                    fontWeight: isFa ? 600 : 500,
-                    lineHeight: 1.6,
-                    wordBreak: "break-word",
-                    fontFamily: headingFont(isFa),
-                }}
-            >
-                {value}
             </div>
         </div>
     );
 }
 
-function DetailRow({ label, value, isFa }) {
+// ------------------------------------------------------------
+// قطعه‌های کوچک (هرکدام یک‌جا تعریف شده تا تکرار استایل حذف شود)
+// ------------------------------------------------------------
+
+const buttonBase = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "9px 14px",
+    borderRadius: "10px",
+    border: "1px solid rgba(255,255,255,0.18)",
+    background: "transparent",
+    color: "#eee",
+    fontSize: "12px",
+    fontWeight: 800,
+    textDecoration: "none",
+    cursor: "pointer",
+    fontFamily: "inherit",
+};
+
+function hexToRgba(hex, alpha) {
+    const value = String(hex || "").replace("#", "").trim();
+
+    if (!/^[0-9a-fA-F]{6}$/.test(value)) {
+        return `rgba(212, 175, 55, ${alpha})`;
+    }
+
+    const r = parseInt(value.slice(0, 2), 16);
+    const g = parseInt(value.slice(2, 4), 16);
+    const b = parseInt(value.slice(4, 6), 16);
+
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function LangToggle({ language, onChange, accent, labels }) {
+    const item = (value, text) => (
+        <button
+            key={value}
+            type="button"
+            onClick={() => onChange(value)}
+            style={{
+                border: "none",
+                borderRadius: "8px",
+                padding: "7px 12px",
+                cursor: "pointer",
+                background: language === value ? accent : "transparent",
+                color: language === value ? "#050505" : "#999",
+                fontWeight: 800,
+                fontSize: "11px",
+                fontFamily: "inherit",
+            }}
+        >
+            {text}
+        </button>
+    );
+
     return (
         <div
             style={{
-                padding: "14px 0",
-                borderBottom: "1px solid rgba(212,175,55,0.10)",
+                display: "flex",
+                gap: "4px",
+                padding: "4px",
+                background: "#151515",
+                border: "1px solid #292929",
+                borderRadius: "11px",
+            }}
+        >
+            {item("fa", labels.persian)}
+            {item("en", labels.english)}
+        </div>
+    );
+}
+
+function Chip({ text, accent, strong }) {
+    return (
+        <span
+            dir="auto"
+            style={{
+                padding: strong ? "7px 12px" : "6px 11px",
+                borderRadius: "8px",
+                background: strong ? accent : "rgba(255,255,255,0.06)",
+                color: strong ? "#050505" : "#bbb",
+                border: strong ? "none" : "1px solid rgba(255,255,255,0.1)",
+                fontSize: "12px",
+                fontWeight: 800,
+                whiteSpace: "nowrap",
+            }}
+        >
+            {text}
+        </span>
+    );
+}
+
+function SectionHead({ text, isFa, right }) {
+    return (
+        <div
+            style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                gap: "10px",
+                marginBottom: "14px",
             }}
         >
             <div
                 style={{
-                    color: GOLD_DIM,
-                    fontSize: isFa ? "12px" : "10px",
+                    color: "#aaa",
+                    fontSize: isFa ? "15px" : "11px",
+                    fontWeight: 900,
+                    letterSpacing: isFa ? 0 : "1.8px",
+                }}
+            >
+                {text}
+            </div>
+
+            {right ? (
+                <div style={{ color: "#666", fontSize: "11px", fontWeight: 700 }}>{right}</div>
+            ) : null}
+        </div>
+    );
+}
+
+function Field({ label, value, isFa }) {
+    return (
+        <div style={{ minWidth: 0 }}>
+            <div
+                style={{
+                    color: "#777",
+                    fontSize: isFa ? "12px" : "9px",
                     fontWeight: 800,
-                    letterSpacing: isFa ? "0" : "1.4px",
-                    marginBottom: "6px",
-                    fontFamily: bodyFont(isFa),
+                    letterSpacing: isFa ? 0 : "1.4px",
+                    marginBottom: "5px",
                 }}
             >
                 {label}
             </div>
 
             <div
+                dir="auto"
                 style={{
-                    color: "#f1e7cf",
-                    fontSize: isFa ? "18px" : "15px",
-                    fontWeight: isFa ? 600 : 500,
+                    color: "#eee",
+                    fontSize: isFa ? "15px" : "13px",
+                    fontWeight: 700,
                     lineHeight: 1.6,
                     wordBreak: "break-word",
-                    fontFamily: headingFont(isFa),
                 }}
             >
                 {value}
             </div>
         </div>
+    );
+}
+
+function Row({ label, value, isFa, last }) {
+    return (
+        <div
+            style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "10px",
+                padding: "10px 0",
+                borderBottom: last ? "none" : "1px solid #1f1f1f",
+            }}
+        >
+            <span
+                style={{
+                    color: "#888",
+                    fontSize: isFa ? "13px" : "11px",
+                    fontWeight: 700,
+                }}
+            >
+                {label}
+            </span>
+
+            <span
+                dir="auto"
+                style={{
+                    color: "#eee",
+                    fontSize: isFa ? "14px" : "12px",
+                    fontWeight: 800,
+                    textAlign: "end",
+                }}
+            >
+                {value}
+            </span>
+        </div>
+    );
+}
+
+function NavButton({ side, dir, step, onClick, accent }) {
+    const isStart = side === "start";
+    const arrow = step < 0 ? "‹" : "›";
+
+    return (
+        <button
+            type="button"
+            onClick={() => onClick(step)}
+            aria-hidden="true"
+            tabIndex={-1}
+            style={{
+                position: "absolute",
+                top: "50%",
+                transform: "translateY(-50%)",
+                [isStart ? (dir === "rtl" ? "right" : "left") : dir === "rtl" ? "left" : "right"]:
+                    "10px",
+                width: "38px",
+                height: "38px",
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(0,0,0,0.55)",
+                color: accent,
+                fontSize: "22px",
+                lineHeight: 1,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+            }}
+        >
+            {arrow}
+        </button>
     );
 }
 

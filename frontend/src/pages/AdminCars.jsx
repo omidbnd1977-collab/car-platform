@@ -14,6 +14,7 @@ const VIEW_NONE = "";
 const VIEW_NEW_CAR = "#/new";
 const VIEW_CAR_IMAGES_PREFIX = "#/car/";
 const VIEW_CAR_EDIT_PREFIX = "#/edit/";
+const VIEW_REQUESTS = "#/requests";
 
 function readViewFromLocation() {
     const win = typeof window === "undefined" ? null : window;
@@ -23,6 +24,10 @@ function readViewFromLocation() {
     }
 
     const hash = String(win.location.hash || "");
+
+    if (hash.startsWith(VIEW_REQUESTS)) {
+        return { name: "requests", id: null };
+    }
 
     if (hash.startsWith(VIEW_CAR_IMAGES_PREFIX)) {
         return { name: "car", id: hash.slice(VIEW_CAR_IMAGES_PREFIX.length) };
@@ -44,11 +49,24 @@ function writeViewToLocation(view) {
         return;
     }
 
-    const next =
-        view === VIEW_NONE ? window.location.pathname + window.location.search : window.location.pathname + window.location.search + view;
+    const pathname = window.location.pathname || "/";
+    const search = window.location.search || "";
+    // Fix SecurityError: when pathname is "/" and view is "", old code produced "//" -> invalid URL "https:"
+    const next = view === VIEW_NONE ? pathname + search : pathname + search + view;
 
-    if (window.location.pathname + window.location.hash !== next) {
-        window.history.replaceState(null, "", next);
+    const current = window.location.pathname + window.location.search + window.location.hash;
+    if (current !== next) {
+        try {
+            window.history.replaceState(null, "", next);
+        } catch {
+            try {
+                if (view && view.startsWith("#")) {
+                    window.location.hash = view;
+                } else {
+                    window.location.hash = "";
+                }
+            } catch {}
+        }
     }
 }
 
@@ -57,6 +75,7 @@ import EditCar from "./EditCar";
 import AddCar from "./AddCar";
 import { getImageUrl } from "../utils/imageUrl";
 import CarDetails from "./CarDetails";
+import VisitRequests from "./VisitRequests";
 import dealerConfig, { tenantSlug } from "../config/dealerConfig";
 import { API_BASE, apiUrl } from "../utils/apiBase";
 import {
@@ -205,6 +224,7 @@ export default function AdminCars() {
     const [selectedCar, setSelectedCar] = useState(null);
     const [editCar, setEditCar] = useState(null);
     const [addingCar, setAddingCar] = useState(() => readViewFromLocation().name === "new");
+    const [showRequests, setShowRequests] = useState(() => readViewFromLocation().name === "requests");
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
     const [detailsCar, setDetailsCar] = useState(null);
@@ -328,6 +348,11 @@ export default function AdminCars() {
 
     // لینک را با حالت فعلی صفحه هم‌نگاه می‌کنیم
     useEffect(() => {
+        if (showRequests) {
+            writeViewToLocation(VIEW_REQUESTS);
+            return;
+        }
+
         if (addingCar) {
             writeViewToLocation(VIEW_NEW_CAR);
 
@@ -347,12 +372,22 @@ export default function AdminCars() {
         }
 
         writeViewToLocation(VIEW_NONE);
-    }, [addingCar, editCar, selectedCar]);
+    }, [addingCar, editCar, selectedCar, showRequests]);
 
     // اگر کاربر خودش hash را عوض کرد (مثلاً Back مرورگر)
     useEffect(() => {
         const onHashChange = () => {
             const view = readViewFromLocation();
+
+            if (view.name === "requests") {
+                setSelectedCar(null);
+                setEditCar(null);
+                setAddingCar(false);
+                setShowRequests(true);
+                return;
+            }
+
+            setShowRequests(false);
 
             if (view.name === "new") {
                 setSelectedCar(null);
@@ -681,6 +716,29 @@ export default function AdminCars() {
         );
     }
 
+    // درخواست‌های بازدید - تب جدید ادمین
+    if (showRequests) {
+        return (
+            <div
+                style={{
+                    minHeight: "100vh",
+                    background: "#f4f4f4",
+                    padding: "35px",
+                    boxSizing: "border-box",
+                    fontFamily: "Arial, sans-serif",
+                }}
+            >
+                <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
+                    <div style={{ display: "flex", gap: "12px", marginBottom: "22px", flexWrap: "wrap" }}>
+                        <button type="button" onClick={() => setShowRequests(false)} style={{ padding: "10px 18px", border: "1px solid #111", borderRadius: "8px", background: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>← بازگشت به خودروها</button>
+                        <button type="button" onClick={() => { setShowRequests(false); setAddingCar(true); }} style={{ padding: "10px 18px", border: "none", borderRadius: "8px", background: "#111", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px" }}>+ افزودن خودرو</button>
+                    </div>
+                    <VisitRequests />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             style={{
@@ -721,6 +779,11 @@ export default function AdminCars() {
                         </code>{" "}
                         {" — برای تغییرات اختصاصی یک مشتری، فایل config/tenants/<slug>.js را ببین."}
                     </p>
+
+                    <div style={{ display: "flex", gap: "10px", marginTop: "18px", flexWrap: "wrap" }}>
+                        <button type="button" onClick={() => setShowRequests(false)} style={{ padding: "10px 18px", borderRadius: "8px", border: showRequests ? "1px solid #444" : "none", background: showRequests ? "transparent" : "#fff", color: showRequests ? "#aaa" : "#111", cursor: "pointer", fontWeight: 800, fontSize: "13px" }}>🚗 خودروها ({cars.length})</button>
+                        <button type="button" onClick={() => setShowRequests(true)} style={{ padding: "10px 18px", borderRadius: "8px", border: !showRequests ? "1px solid #444" : "none", background: !showRequests ? "transparent" : "#fff", color: !showRequests ? "#aaa" : "#111", cursor: "pointer", fontWeight: 800, fontSize: "13px" }}>📋 درخواست‌های بازدید</button>
+                    </div>
                 </div>
 
                 {/* ---------------------------------------

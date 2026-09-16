@@ -10,6 +10,7 @@ const imageRoutes = require("./routes/imageRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const publicRoutes = require("./routes/publicRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
+const visitRequestRoutes = require("./routes/visitRequestRoutes");
 const multer = require("multer");
 const { MAX_FILE_SIZE_MB } = require("./middleware/upload");
 const storageService = require("./services/storageService");
@@ -71,6 +72,7 @@ app.use("/api/images", imageRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/public", publicRoutes);
 app.use("/api/purchases", purchaseRoutes);
+app.use("/api/visit-requests", visitRequestRoutes);
 app.use(
 "/api/catalog",
 catalogRoutes
