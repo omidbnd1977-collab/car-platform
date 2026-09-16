@@ -361,7 +361,7 @@ return (
                     }}
                 />
 
-                {/* QR مجلسی بالای اسم شرکت - کلیک برای پرینت A4 */}
+                {/* QR مجلسی بالای اسم شرکت -  */}
                 <div
                     style={{
                         position: "absolute",
@@ -431,9 +431,7 @@ return (
                     >
                         {dealerConfig.name}
                     </div>
-                    <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", letterSpacing: "1px", textShadow: "0 2px 8px rgba(0,0,0,0.9)" }}>
-                        کلیک برای پرینت A4
-                    </div>
+                    {/* متن حذف شد */}
                 </div>
             </section>
 
