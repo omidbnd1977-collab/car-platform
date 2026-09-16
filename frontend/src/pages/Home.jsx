@@ -1,9 +1,10 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import CarCard from "../components/CarCard";
 import CarDetails from "./CarDetails";
 import { getImageUrl } from "../utils/imageUrl";
-import dealerConfig from "../config/dealerConfig";
+import dealerConfig, { tenantSlug } from "../config/dealerConfig";
+import { QRCodeSVG } from "qrcode.react";
 
 function Home() {
     const [cars, setCars] = useState([]);
@@ -19,6 +20,10 @@ const [maxPrice, setMaxPrice] = useState("");
 const [selectedCar, setSelectedCar] = useState(null);
 
 const handleViewDetails = (car) => {
+    console.log("========== FULL CAR DATA ==========");
+    console.log(JSON.stringify(car, null, 2));
+    console.log("===================================");
+
     setSelectedCar(car);
 };
 
@@ -356,25 +361,79 @@ return (
                     }}
                 />
 
+                {/* QR مجلسی بالای اسم شرکت - کلیک برای پرینت A4 */}
                 <div
                     style={{
                         position: "absolute",
                         right: "7%",
                         bottom: "28px",
-                        zIndex: 2,
-                        direction: "rtl",
-                        color: "#fff",
-                        fontSize: "15px",
-                        fontWeight: 800,
-                        letterSpacing: "1.5px",
-                        textShadow: "0 3px 18px rgba(0,0,0,0.85)",
-                        padding: "8px 14px",
-                        borderRight: "2px solid #d4af37",
-                        background: "rgba(0,0,0,0.22)",
-                        backdropFilter: "blur(3px)",
+                        zIndex: 3,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "10px",
                     }}
                 >
-                    {dealerConfig.name}
+                    <button
+                        type="button"
+                        aria-label="QR Print"
+                        onClick={() => {
+                            const slug = tenantSlug || "qeshm";
+                            window.open(`/?dealer=${slug}&qr`, "_blank", "noopener");
+                        }}
+                        style={{
+                            width: "92px",
+                            height: "92px",
+                            padding: "6px",
+                            borderRadius: "16px",
+                            background: "#fff",
+                            border: "2px solid rgba(212,175,55,0.85)",
+                            boxShadow: "0 8px 24px rgba(0,0,0,0.45), 0 0 0 6px rgba(212,175,55,0.15)",
+                            cursor: "pointer",
+                            display: "grid",
+                            placeItems: "center",
+                            transition: "transform 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                    >
+                        <QRCodeSVG
+                            value={
+                                typeof window !== "undefined"
+                                    ? (() => {
+                                        const host = window.location.hostname;
+                                        const isBase = host.includes("car-platform-9vv7") || host === "localhost" || host === "127.0.0.1";
+                                        return isBase ? `${window.location.origin}/?dealer=${tenantSlug}` : window.location.origin;
+                                    })()
+                                    : `https://car-platform-9vv7.onrender.com/?dealer=${tenantSlug}`
+                            }
+                            size={78}
+                            bgColor="#ffffff"
+                            fgColor="#111111"
+                            level="M"
+                            includeMargin={true}
+                        />
+                    </button>
+                    <div
+                        style={{
+                            direction: "rtl",
+                            color: "#fff",
+                            fontSize: "15px",
+                            fontWeight: 800,
+                            letterSpacing: "1.5px",
+                            textShadow: "0 3px 18px rgba(0,0,0,0.85)",
+                            padding: "8px 14px",
+                            borderRight: "2px solid #d4af37",
+                            background: "rgba(0,0,0,0.32)",
+                            backdropFilter: "blur(4px)",
+                            borderRadius: "6px 0 0 6px",
+                        }}
+                    >
+                        {dealerConfig.name}
+                    </div>
+                    <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", letterSpacing: "1px", textShadow: "0 2px 8px rgba(0,0,0,0.9)" }}>
+                        کلیک برای پرینت A4
+                    </div>
                 </div>
             </section>
 
@@ -614,6 +673,8 @@ return (
                                 </a>
                             ))}
                         </section>
+
+                        {/* QR الان مجلسی بالای اسم شرکت در هیرو است - اینجا حذف شد تا تکراری نباشد */}
 
                         {loading ? (
                             <div
