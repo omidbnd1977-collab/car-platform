@@ -14,22 +14,18 @@ router.post("/webhook", (req, res) => {
     try {
         console.log("=== KAVENEGAR WEBHOOK RECEIVED ===");
         console.log("Time:", new Date().toISOString());
-        console.log("Headers:", JSON.stringify(req.headers).slice(0, 1000));
-        console.log("Body:", JSON.stringify(req.body || {}).slice(0, 2000));
+        // لاگ امن - بدون لو دادن کل هدر
+        const safeBody = req.body || {};
+        console.log("Body keys:", Object.keys(safeBody));
+        console.log("Body:", JSON.stringify(safeBody).slice(0, 2000));
         console.log("Query:", JSON.stringify(req.query || {}).slice(0, 1000));
         console.log("===================================");
 
-        // کاوه‌نگار معمولاً این فیلدها را می‌فرستد:
-        // messageid, status, statustext, sender, receptor, date, cost
         const body = req.body || {};
-        const messageId = body.messageid || body.MessageID || body.messageId || "";
+        const messageId = body.messageid || body.MessageID || body.messageId || body.message_id || "";
         const status = body.status || body.Status || "";
         const receptor = body.receptor || body.Receptor || "";
 
-        // اینجا می‌تونی وضعیت را در دیتابیس ذخیره کنی اگر خواستی
-        // مثلاً آپدیت جدول sms_logs
-
-        // باید 200 برگردانی تا کاوه‌نگار بفهمد دریافت شد
         return res.status(200).json({
             ok: true,
             received: true,
@@ -39,8 +35,9 @@ router.post("/webhook", (req, res) => {
             at: new Date().toISOString()
         });
     } catch (e) {
-        console.error("SMS WEBHOOK ERROR:", e.message);
-        return res.status(200).json({ ok: true, error: e.message }); // حتی در خطا 200 بده تا کاوه‌نگار retry نکند
+        console.error("SMS WEBHOOK ERROR:", e.message, e.stack);
+        // حتی در خطا 200 بده تا کاوه‌نگار retry بی‌نهایت نکند
+        return res.status(200).json({ ok: true, received: true, error: e.message });
     }
 });
 
