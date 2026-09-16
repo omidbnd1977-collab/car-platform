@@ -54,6 +54,51 @@ router.get("/webhook", (req, res) => {
     });
 });
 
+// تست ارسال پیامک به مدیر - GET /api/sms/test
+// برای اینکه بفهمی چرا پیامک نمی‌رود
+router.get("/test", async (req, res) => {
+    try {
+        const smsService = require("../services/smsService");
+        const conf = smsService.getConfig();
+
+        if (!conf.enabled) {
+            return res.status(400).json({ error: "KAVENEGAR_API_KEY تنظیم نشده", config: conf });
+        }
+        if (conf.adminMobiles.length === 0) {
+            return res.status(400).json({ error: "ADMIN_MOBILE تنظیم نشده", config: conf });
+        }
+
+        const testMobile = conf.adminMobiles[0];
+        const message = `تست پیامک از سایت ${new Date().toLocaleString("fa-IR")}`;
+
+        console.log(`SMS TEST: sending to ${testMobile}`);
+
+        const result = await smsService.sendViaKavenegar({
+            receptor: testMobile,
+            message
+        });
+
+        return res.json({
+            ok: true,
+            sentTo: testMobile,
+            result,
+            config: {
+                enabled: conf.enabled,
+                hasSender: Boolean(conf.sender),
+                adminCount: conf.adminMobiles.length,
+                template: conf.template
+            }
+        });
+    } catch (e) {
+        console.error("SMS TEST ERROR:", e.message);
+        return res.status(500).json({
+            ok: false,
+            error: e.message,
+            stack: e.stack ? e.stack.slice(0, 1000) : ""
+        });
+    }
+});
+
 // وضعیت سرویس پیامک
 router.get("/status", (req, res) => {
     try {
@@ -67,7 +112,8 @@ router.get("/status", (req, res) => {
             template: conf.template || null,
             adminTemplate: conf.adminTemplate || null,
             provider: "kavenegar",
-            webhook: "https://car-platform-db.onrender.com/api/sms/webhook"
+            webhook: "https://car-platform-db.onrender.com/api/sms/webhook",
+            testUrl: "https://car-platform-db.onrender.com/api/sms/test"
         });
     } catch (e) {
         return res.status(500).json({ error: e.message });
