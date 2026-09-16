@@ -69,28 +69,66 @@ router.get("/test", async (req, res) => {
         }
 
         const testMobile = conf.adminMobiles[0];
-        const message = `تست پیامک از سایت ${new Date().toLocaleString("fa-IR")}`;
+        const template = conf.template || conf.adminTemplate;
 
-        console.log(`SMS TEST: sending to ${testMobile}`);
+        console.log(`SMS TEST: sending to ${testMobile} template=${template || 'none'} sender=${conf.sender || 'none'}`);
 
-        const result = await smsService.sendViaKavenegar({
-            receptor: testMobile,
-            message
-        });
-
-        return res.json({
-            ok: true,
-            sentTo: testMobile,
-            result,
-            config: {
-                enabled: conf.enabled,
-                hasSender: Boolean(conf.sender),
-                adminCount: conf.adminMobiles.length,
-                template: conf.template
+        // اگر پترن داری، اول Lookup را امتحان کن (نیازی به sender ندارد)
+        if (template) {
+            try {
+                const r = await smsService.lookupViaKavenegar({
+                    receptor: testMobile,
+                    template,
+                    token: "تست",
+                    token2: testMobile,
+                    token3: "تویوتا"
+                });
+                return res.json({
+                    ok: true,
+                    method: "lookup",
+                    sentTo: testMobile,
+                    template,
+                    result: r,
+                    config: conf
+                });
+            } catch (lookupErr) {
+                console.error("Lookup test failed, trying Send:", lookupErr.message);
+                // ادامه به Send
             }
-        });
+        }
+
+        // Send معمولی
+        try {
+            const message = `تست پیامک از سایت ${new Date().toLocaleString("fa-IR")}`;
+            const result = await smsService.sendViaKavenegar({
+                receptor: testMobile,
+                message
+            });
+            return res.json({
+                ok: true,
+                method: "send",
+                sentTo: testMobile,
+                result,
+                config: conf
+            });
+        } catch (sendErr) {
+            // خطای 412 sender invalid -> راهنمایی دقیق
+            const errMsg = String(sendErr.message || "");
+            let help = "";
+            if (errMsg.includes("412") || errMsg.includes("ارسال کننده نامعتبر")) {
+                help = "فرستنده نامعتبر است. یا SMS_SENDER را از پنل کاوه‌نگار (شماره‌های من) دقیق کپی کن، یا SMS_SENDER را حذف کن و یک الگو (Lookup) بساز و KAVENEGAR_TEMPLATE را ست کن. بدون فرستنده معتبر، متد Send کار نمی‌کند.";
+            }
+            return res.status(500).json({
+                ok: false,
+                error: errMsg,
+                help,
+                config: conf,
+                suggestion: "پنل کاوه‌نگار -> شماره‌ها -> شماره دقیق را کپی کن به SMS_SENDER، یا پنل -> الگوها -> الگوی جدید admin-notify بساز و KAVENEGAR_TEMPLATE=admin-notify ست کن"
+            });
+        }
+
     } catch (e) {
-        console.error("SMS TEST ERROR:", e.message);
+        console.error("SMS TEST ERROR:", e.message, e.stack);
         return res.status(500).json({
             ok: false,
             error: e.message,
