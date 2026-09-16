@@ -1,42 +1,388 @@
-import React, { useState } from "react";
+import React from "react";
 import { getImageUrl } from "../utils/imageUrl";
 import dealerConfig from "../config/dealerConfig";
-const PH="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23e0e0e0'/%3E%3C/svg%3E";
-function isP(v){return v===true||String(v).toLowerCase()==="true";}
-function getImg(c){
-  const im=(Array.isArray(c?.images)?c.images:[]).filter(i=>i?.image_url);
-  if(!im.length)return "";
-  const p=im.find(i=>isP(i.is_primary))||(c?.primary_image_id!=null&&im.find(i=>String(i.id)===String(c.primary_image_id)))||im[0];
-  return p?.image_url||"";
+import SafeImage from "./SafeImage";
+
+// placeholder قبلاً یک data URI ثابت انگلیسی («No Image») بود و هر فایلی
+// که آن را لازم داشت یک کپی از همان رشته داشت. حالا SafeImage آن را
+// می‌سازد (تمیز، با آیکون و متن درست) و کارت فقط آدرس عکس را می‌دهد.
+
+// ------------------------------------------------------------
+// انتخاب عکس کارت
+// ------------------------------------------------------------
+// قبلاً همیشه images[0] استفاده می‌شد، یعنی اولین ردیف
+// جدول car_images بر اساس sort_order؛ در نتیجه عکس داخلی یا
+// بغل خودرو به‌جای عکس اصلی انتخاب می‌شد.
+// حالا اولویت با عکس اصلی است:
+//   ۱) تصویری که is_primary = true دارد
+//   ۲) تصویری که id آن با cars.primary_image_id برابر است
+//   ۳) اگر هیچ‌کدام نبود، اولین عکس معتبر (رفتار قبلی)
+// ------------------------------------------------------------
+function isPrimaryFlag(value) {
+    return value === true || String(value).toLowerCase() === "true";
 }
-export default function CarCard({car,onViewDetails,onContactRequest}){
-  const [h,sH]=useState(false);
-  const src=getImg(car);
-  const img=src?getImageUrl(src):PH;
-  const title=`${car?.brand_name||car?.brand||""} ${car?.model_name||car?.model||""}`.trim()||"خودرو";
-  const price=car?.price_aed?Number(car.price_aed).toLocaleString("en-US"):"N/A";
-  const contact=()=>{
-    if(onContactRequest){onContactRequest(car);return;}
-    const ph=String(dealerConfig.phone||"").trim();
-    if(ph){window.location.href=`tel:${ph}`;return;}
-    const wa=String(dealerConfig.whatsapp||"").trim().replace(/[^\d]/g,"");
-    if(wa){window.open(`https://wa.me/${wa}`,"_blank","noopener");return;}
-  };
-  return (
-    <div style={{width:"100%",background:"linear-gradient(145deg, #ffffff 0%, #f7f7f7 100%)",borderRadius:"20px",overflow:"hidden",border:"1px solid rgba(0,0,0,0.06)",boxShadow:h?"0 24px 55px rgba(0,0,0,0.20)":"0 10px 30px rgba(0,0,0,0.09)",transform:h?"translateY(-8px)":"translateY(0)",transition:"all 0.45s",display:"flex",flexDirection:"column"}} onMouseEnter={()=>sH(true)} onMouseLeave={()=>sH(false)}>
-      <div style={{position:"relative",width:"100%",height:"215px",background:"#eee",overflow:"hidden"}}>
-        <img src={img} alt={title} style={{width:"100%",height:"100%",objectFit:"cover",transform:h?"scale(1.06)":"scale(1)",transition:"transform 0.8s"}} />
-        {car?.year&&<div style={{position:"absolute",top:"14px",left:"14px",background:"rgba(0,0,0,0.72)",color:"#fff",padding:"6px 11px",borderRadius:"20px",fontSize:"12px",fontWeight:"700"}}>{car.year}</div>}
-      </div>
-      <div style={{padding:"18px 18px 20px",display:"flex",flexDirection:"column",flexGrow:1}}>
-        <h3 style={{margin:"0 0 12px",fontSize:"19px",color:"#111",fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{title}</h3>
-        <div style={{display:"flex",justifyContent:"center",gap:"7px",marginBottom:"20px"}}><span style={{fontSize:"26px",fontWeight:900,color:"#111"}}>{price}</span><span style={{fontSize:"13px",fontWeight:800,color:"#8a8a8a"}}>{dealerConfig.currency}</span></div>
-        <div style={{marginTop:"auto",display:"flex",border:"1.5px solid rgba(212,175,55,0.55)",borderRadius:"999px",overflow:"hidden",background:"#fff"}}>
-          <button type="button" onClick={contact} dir="rtl" style={{flex:1,padding:"13px 8px",border:"none",background:"#fff",color:"#a97f2f",cursor:"pointer",fontFamily:"Tahoma, Arial, sans-serif",fontSize:"12px",fontWeight:900,letterSpacing:"1.2px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>درخواست بازدید</button>
-          <span style={{width:"1px",margin:"9px 0",background:"rgba(169,127,47,0.35)"}} />
-          <button type="button" onClick={()=>onViewDetails&&onViewDetails(car)} dir="rtl" style={{flex:1,padding:"13px 8px",border:"none",background:"#fff",color:"#a97f2f",fontFamily:"Tahoma, Arial, sans-serif",fontSize:"12px",fontWeight:900,letterSpacing:"1.2px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",cursor:"pointer"}}>مشاهده جزئیات</button>
+
+function getCardImageSource(car) {
+    const images = (Array.isArray(car?.images) ? car.images : []).filter(
+        (img) => img?.image_url
+    );
+
+    if (!images.length) {
+        return "";
+    }
+
+    const primary =
+        images.find((img) => isPrimaryFlag(img.is_primary)) ||
+        (car?.primary_image_id != null &&
+            images.find(
+                (img) => String(img.id) === String(car.primary_image_id)
+            )) ||
+        images[0];
+
+    return primary?.image_url || "";
+}
+
+// استایل مشترک سه دکمه‌ی پایین کارت: قد برابر، فشرده، بدون سرریز.
+// یک جا تعریف شده تا هر سه دقیقاً هم‌اندازه بمانند.
+function actionButtonStyle(colors) {
+    return {
+        width: "100%",
+        height: "100%",
+        minHeight: "32px",
+        padding: "8px 4px",
+        borderRadius: "8px",
+        fontSize: "10px",
+        fontWeight: "800",
+        letterSpacing: "0.2px",
+        lineHeight: 1.5,
+        whiteSpace: "normal",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        transition: "background 0.3s ease, filter 0.3s ease",
+        ...colors,
+    };
+}
+
+function CarCard({
+    car,
+    onViewDetails,
+}) {
+    const handleContact = () => {
+        const phone = String(dealerConfig.phone || "").trim();
+        if (phone) {
+            window.location.href = `tel:${phone}`;
+            return;
+        }
+        const whatsapp = String(dealerConfig.whatsapp || "")
+            .trim()
+            .replace(/[^\d]/g, "");
+        if (whatsapp) {
+            window.open(`https://wa.me/${whatsapp}`, "_blank", "noopener");
+            return;
+        }
+        alert("درخواست تماس / بازدید شما ثبت خواهد شد.");
+    };
+
+    const imageSource = getCardImageSource(car);
+    const image = imageSource ? getImageUrl(imageSource) : "";
+    const brand = car?.brand_name || car?.brand || "";
+    const model = car?.model_name || car?.model || "";
+    const price = car?.price_aed ? Number(car.price_aed).toLocaleString("en-US") : "N/A";
+    const city = String(car?.city || "").trim();
+
+    return (
+        <div
+            className="car-card"
+            style={{
+                width: "100%",
+                minWidth: 0,
+                background: "linear-gradient(145deg, #16130c 0%, #0b0906 55%, #151006 100%)",
+                borderRadius: "20px",
+                overflow: "hidden",
+                border: "1px solid rgba(212,175,55,0.32)",
+                boxShadow: "0 12px 35px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,175,55,0.08), inset 0 1px 0 rgba(255,255,255,0.06)",
+                transition: "transform 0.5s cubic-bezier(.22,1,.36,1), box-shadow 0.5s cubic-bezier(.22,1,.36,1), border-color 0.4s ease",
+                display: "flex",
+                flexDirection: "column",
+                boxSizing: "border-box",
+                animation: "carCardReveal 0.7s cubic-bezier(.22,1,.36,1) both",
+                position: "relative",
+            }}
+            onMouseEnter={(event) => {
+                event.currentTarget.style.transform = "translateY(-10px) scale(1.015)";
+                event.currentTarget.style.borderColor = "rgba(212,175,55,0.65)";
+                event.currentTarget.style.boxShadow = "0 28px 65px rgba(0,0,0,0.65), 0 0 0 1px rgba(212,175,55,0.25), 0 0 40px rgba(212,175,55,0.18), inset 0 1px 0 rgba(255,255,255,0.08)";
+            }}
+            onMouseLeave={(event) => {
+                event.currentTarget.style.transform = "translateY(0) scale(1)";
+                event.currentTarget.style.borderColor = "rgba(212,175,55,0.32)";
+                event.currentTarget.style.boxShadow = "0 12px 35px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,175,55,0.08), inset 0 1px 0 rgba(255,255,255,0.06)";
+            }}
+        >
+            {/* IMAGE - 195px شیک */}
+            <div
+                className="car-card-media"
+                style={{
+                    position: "relative",
+                    width: "100%",
+                    height: "195px",
+                    background: "#0a0a0a",
+                    overflow: "hidden",
+                }}
+            >
+                <SafeImage
+                    src={image}
+                    alt={`${brand} ${model}`}
+                    variant="light"
+                    fit="cover"
+                    title="عکس در دسترس نیست"
+                    loading="lazy"
+                />
+
+                {/* شاین طلایی */}
+                <div
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        pointerEvents: "none",
+                        background: "linear-gradient(120deg, rgba(212,175,55,0.08) 0%, transparent 35%, transparent 70%, rgba(212,175,55,0.05) 100%)",
+                        opacity: 0.8,
+                    }}
+                />
+
+                {/* گرادیان مشکی پایین */}
+                <div
+                    style={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: "55%",
+                        background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 45%, transparent 100%)",
+                        pointerEvents: "none",
+                    }}
+                />
+
+                {/* YEAR - طلایی شامپاینی */}
+                {car?.year && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            top: "12px",
+                            left: "12px",
+                            background: "linear-gradient(135deg, #d4af37, #a9823f)",
+                            color: "#111",
+                            padding: "5px 12px",
+                            borderRadius: "999px",
+                            fontSize: "11px",
+                            fontWeight: "900",
+                            letterSpacing: "0.8px",
+                            boxShadow: "0 4px 12px rgba(212,175,55,0.35)",
+                            border: "1px solid rgba(255,255,255,0.25)",
+                        }}
+                    >
+                        {car.year}
+                    </div>
+                )}
+
+                {/* PREMIUM */}
+                <div
+                    style={{
+                        position: "absolute",
+                        top: "12px",
+                        right: "12px",
+                        background: "rgba(0,0,0,0.72)",
+                        color: "#d4af37",
+                        padding: "4px 10px",
+                        borderRadius: "999px",
+                        fontSize: "8px",
+                        fontWeight: "900",
+                        letterSpacing: "1.8px",
+                        backdropFilter: "blur(8px)",
+                        WebkitBackdropFilter: "blur(8px)",
+                        border: "1px solid rgba(212,175,55,0.28)",
+                    }}
+                >
+                    PREMIUM VEHICLE
+                </div>
+            </div>
+
+            {/* CONTENT - طلایی شامپاینی و مشکی */}
+            <div
+                style={{
+                    padding: "18px 18px 16px",
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                }}
+            >
+                <div
+                    style={{
+                        color: "#8a7d5e",
+                        fontSize: "8px",
+                        fontWeight: "900",
+                        letterSpacing: "2.2px",
+                        marginBottom: "8px",
+                    }}
+                >
+                    LUXURY EDITION
+                </div>
+
+                <h2
+                    style={{
+                        margin: "0 0 12px",
+                        textAlign: "center",
+                        fontSize: "19px",
+                        lineHeight: 1.25,
+                        color: "#f5e6c8",
+                        fontWeight: "800",
+                        fontFamily: "'Playfair Display', Tahoma, serif",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        minHeight: "48px",
+                    }}
+                >
+                    {brand} <span style={{ color: "#d4af37" }}>/</span> {model}
+                </h2>
+
+                <div
+                    style={{
+                        marginBottom: "14px",
+                        textAlign: "center",
+                        padding: "12px 0 14px",
+                        borderTop: "1px solid rgba(212,175,55,0.14)",
+                        borderBottom: "1px solid rgba(212,175,55,0.10)",
+                        background: "radial-gradient(ellipse at center, rgba(212,175,55,0.06), transparent 70%)",
+                    }}
+                >
+                    <div
+                        style={{
+                            fontSize: "8px",
+                            color: "#8a7d5e",
+                            letterSpacing: "2px",
+                            marginBottom: "4px",
+                            fontWeight: "800",
+                        }}
+                    >
+                        PRICE
+                    </div>
+                    <div
+                        style={{
+                            fontSize: "22px",
+                            fontWeight: "900",
+                            color: "#f5e6a6",
+                            letterSpacing: "-0.3px",
+                            textShadow: "0 2px 12px rgba(212,175,55,0.35)",
+                        }}
+                    >
+                        {price} {dealerConfig.currency}
+                    </div>
+                    <div
+                        style={{
+                            marginTop: "6px",
+                            color: "#6d6655",
+                            fontSize: "8.5px",
+                            letterSpacing: "0.3px",
+                            lineHeight: 1.5,
+                        }}
+                    >
+                        قیمت شامل هزینه لندیکرافت از مبدأ می‌باشد
+                    </div>
+                </div>
+
+                {city ? (
+                    <div
+                        style={{
+                            textAlign: "center",
+                            color: "#9a8d72",
+                            fontSize: "12px",
+                            marginBottom: "14px",
+                        }}
+                    >
+                        📍 {city}
+                    </div>
+                ) : null}
+
+                {/* دو دکمه هم‌قد - 3 تا کارت در هر ردیف حفظ میشه چون گرید هوم 3 تاییه */}
+                <div
+                    dir="ltr"
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: "10px",
+                        marginTop: "auto",
+                        alignItems: "stretch",
+                    }}
+                >
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (onViewDetails) {
+                                onViewDetails(car);
+                            }
+                        }}
+                        style={{
+                            width: "100%",
+                            height: "38px",
+                            borderRadius: "10px",
+                            fontSize: "10.5px",
+                            fontWeight: "900",
+                            letterSpacing: "0.3px",
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            transition: "all 0.3s ease",
+                            background: "#0a0a0a",
+                            color: "#f5e6c8",
+                            border: "1px solid rgba(212,175,55,0.32)",
+                            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#111";
+                            e.currentTarget.style.borderColor = "rgba(212,175,55,0.55)";
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "#0a0a0a";
+                            e.currentTarget.style.borderColor = "rgba(212,175,55,0.32)";
+                        }}
+                    >
+                        VIEW DETAILS
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleContact}
+                        style={{
+                            width: "100%",
+                            height: "38px",
+                            borderRadius: "10px",
+                            fontSize: "10.5px",
+                            fontWeight: "900",
+                            letterSpacing: "0.3px",
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            transition: "all 0.3s ease",
+                            background: "linear-gradient(135deg, #e8d27a 0%, #d4af37 25%, #c9a45c 50%, #a9823f 100%)",
+                            color: "#111",
+                            border: "1px solid #d4af37",
+                            boxShadow: "0 6px 18px rgba(212,175,55,0.28), inset 0 1px 0 rgba(255,255,255,0.4)",
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.filter = "brightness(1.08)";
+                            e.currentTarget.style.transform = "translateY(-1px)";
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.filter = "brightness(1)";
+                            e.currentTarget.style.transform = "translateY(0)";
+                        }}
+                    >
+                        تماس / درخواست بازدید
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
+
+export default CarCard;
