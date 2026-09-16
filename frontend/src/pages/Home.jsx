@@ -147,6 +147,27 @@ useEffect(() => {
         [cars]
     );
 
+    // فقط برند و سال از ماشین‌های ثبت شده - هر ماشین جدید که ثبت میکنی اینجا میاد
+    const availableBrands = useMemo(
+        () =>
+            [...new Set(
+                cars
+                    .map((car) => String(car?.brand_name || car?.brand || "").trim())
+                    .filter(Boolean)
+            )].sort((a, b) => a.localeCompare(b)),
+        [cars]
+    );
+
+    const availableYears = useMemo(
+        () =>
+            [...new Set(
+                cars
+                    .map((car) => Number(car?.year || 0))
+                    .filter((y) => y > 0)
+            )].sort((a, b) => b - a),
+        [cars]
+    );
+
     const brandImageGroups = useMemo(() => {
     const groups = new Map();
 
@@ -361,7 +382,7 @@ return (
                     }}
                 />
 
-                {/* QR مجلسی بالای اسم شرکت -  */}
+                {/* QR مجلسی بالای اسم شرکت - کلیک برای پرینت A4 */}
                 <div
                     style={{
                         position: "absolute",
@@ -431,7 +452,7 @@ return (
                     >
                         {dealerConfig.name}
                     </div>
-                    {/* متن حذف شد */}
+                    {/* متن کلیک حذف شد به درخواست کاربر */}
                 </div>
             </section>
 
@@ -912,7 +933,7 @@ return (
         </div>
     </div>
 
-    {/* YEAR */}
+    {/* YEAR - فقط سال‌هایی که ماشین ثبت شده دارد */}
     <div style={{ marginBottom: "18px" }}>
         <label
             style={{
@@ -933,10 +954,7 @@ return (
                 gap: "8px",
             }}
         >
-            {Array.from(
-                { length: 12 },
-                (_, index) => 2026 - index
-            ).map((year) => (
+            {(availableYears.length > 0 ? availableYears : []).map((year) => (
                 <label
                     key={year}
                     style={{
@@ -982,7 +1000,7 @@ boxShadow: selectedYears.includes(year)
         </div>
     </div>
 
-    {/* BRAND */}
+    {/* BRAND - فقط برندهایی که ماشین ثبت شده دارد */}
     <div style={{ marginBottom: "18px" }}>
         <label
             style={{
@@ -1007,7 +1025,7 @@ boxShadow: selectedYears.includes(year)
         padding: "10px",
     }}
 >
-            {brands.map((item) => {
+            {(availableBrands.length > 0 ? availableBrands : []).map((item) => {
                 const value = item.trim().toLowerCase();
 
                 return (
