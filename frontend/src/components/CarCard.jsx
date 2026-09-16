@@ -96,6 +96,8 @@ function CarCard({
             style={{
                 width: "100%",
                 minWidth: 0,
+                height: "100%",
+                minHeight: "445px",
                 background: "linear-gradient(145deg, #16130c 0%, #0b0906 55%, #151006 100%)",
                 borderRadius: "20px",
                 overflow: "hidden",
