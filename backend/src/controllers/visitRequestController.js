@@ -359,30 +359,52 @@ exports.exportVisitRequestsCsv = async (req, res) => {
 exports.bulkSmsToConsented = async (req, res) => {
     try {
         await ensureTable();
-        const { message, template, dryRun } = req.body || {};
+        const { message, template, dryRun, mobiles: selectedMobiles } = req.body || {};
         const smsService = require("../services/smsService");
         const conf = smsService.getConfig();
         if (!conf.enabled) return res.status(400).json({ error: "KAVENEGAR_API_KEY نیست" });
 
-        const q = await db.query(`SELECT DISTINCT ON (mobile) mobile, first_name FROM visit_requests WHERE sms_consent = true ORDER BY mobile, created_at DESC`);
-        const mobiles = q.rows.map((r) => r.mobile).filter(Boolean);
+        let rows = [];
+        if (Array.isArray(selectedMobiles) && selectedMobiles.length > 0) {
+            // فقط شماره‌های انتخاب شده از فرانت
+            const cleaned = selectedMobiles.map((m) => String(m).trim()).filter((m) => /^09\d{9}$/.test(m));
+            if (cleaned.length === 0) return res.status(400).json({ error: "شماره معتبر انتخاب نشده" });
+            // اطلاعات نام را هم بگیر
+            const q = await db.query(`SELECT DISTINCT ON (mobile) mobile, first_name FROM visit_requests WHERE mobile = ANY($1) ORDER BY mobile, created_at DESC`, [cleaned]);
+            rows = q.rows;
+            // اگر شماره‌ای تو DB نبود (تست)، با نام پیش‌فرض بساز
+            const foundMobiles = new Set(rows.map((r) => r.mobile));
+            for (const m of cleaned) {
+                if (!foundMobiles.has(m)) rows.push({ mobile: m, first_name: "کاربر" });
+            }
+        } else {
+            // همه رضایت‌دارها
+            const q = await db.query(`SELECT DISTINCT ON (mobile) mobile, first_name FROM visit_requests WHERE sms_consent = true ORDER BY mobile, created_at DESC`);
+            rows = q.rows;
+        }
 
-        if (mobiles.length === 0) return res.json({ ok: true, total: 0, message: "هیچ شماره رضایت‌داری نیست" });
+        const mobiles = rows.map((r) => r.mobile).filter(Boolean);
+        if (mobiles.length === 0) return res.json({ ok: true, total: 0, message: "هیچ شماره‌ای نیست" });
         if (dryRun) return res.json({ ok: true, dryRun: true, total: mobiles.length, sample: mobiles.slice(0,5) });
 
-        // اگر template دادی، با Lookup گروهی (باید پنل کاوه‌نگار از bulk پشتیبانی کند - ما تک‌تک می‌فرستیم با فاصله)
+        if (!message && !template) return res.status(400).json({ error: "متن پیامک را وارد کنید" });
+
         const results = [];
-        for (const row of q.rows) {
+        for (const row of rows) {
             try {
                 let r;
                 if (template) {
                     r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template, token: String(row.first_name || "کاربر").replace(/\s+/g,"-").slice(0,20) });
                 } else {
-                    if (!message) throw new Error("message یا template لازم است");
-                    r = await smsService.sendViaKavenegar({ receptor: row.mobile, message });
+                    // اگر sender نداری و lookup داری، با lookup بفرست (چون Send نیاز به sender دارد)
+                    if (!conf.sender && conf.template) {
+                        r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: conf.template, token: String(row.first_name || "کاربر").replace(/\s+/g,"-").slice(0,20), token2: String(message).slice(0,30).replace(/\s+/g,"-"), token3: "گروهی" });
+                    } else {
+                        r = await smsService.sendViaKavenegar({ receptor: row.mobile, message });
+                    }
                 }
                 results.push({ mobile: row.mobile, ok: true });
-                await new Promise((res) => setTimeout(res, 400)); // ضد اسپم کاوه‌نگار
+                await new Promise((res) => setTimeout(res, 400));
             } catch (e) {
                 results.push({ mobile: row.mobile, ok: false, error: e.message });
             }
