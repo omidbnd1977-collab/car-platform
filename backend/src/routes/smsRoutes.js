@@ -73,6 +73,7 @@ router.get("/test", async (req, res) => {
 
         console.log(`SMS TEST: sending to ${testMobile} template=${template || 'none'} sender=${conf.sender || 'none'}`);
 
+        let lookupError = null;
         // اگر پترن داری، اول Lookup را امتحان کن (نیازی به sender ندارد)
         if (template) {
             try {
@@ -91,9 +92,9 @@ router.get("/test", async (req, res) => {
                     result: r,
                     config: conf
                 });
-            } catch (lookupErr) {
-                console.error("Lookup test failed, trying Send:", lookupErr.message);
-                // ادامه به Send
+            } catch (e) {
+                lookupError = e.message;
+                console.error("Lookup test failed:", e.message);
             }
         }
 
@@ -109,10 +110,10 @@ router.get("/test", async (req, res) => {
                 method: "send",
                 sentTo: testMobile,
                 result,
-                config: conf
+                config: conf,
+                lookupError
             });
         } catch (sendErr) {
-            // خطای 412 sender invalid -> راهنمایی دقیق
             const errMsg = String(sendErr.message || "");
             let help = "";
             if (errMsg.includes("412") || errMsg.includes("ارسال کننده نامعتبر")) {
@@ -121,9 +122,10 @@ router.get("/test", async (req, res) => {
             return res.status(500).json({
                 ok: false,
                 error: errMsg,
+                lookupError,
                 help,
                 config: conf,
-                suggestion: "پنل کاوه‌نگار -> شماره‌ها -> شماره دقیق را کپی کن به SMS_SENDER، یا پنل -> الگوها -> الگوی جدید admin-notify بساز و KAVENEGAR_TEMPLATE=admin-notify ست کن"
+                suggestion: "اگر template ست کردی ولی lookupError داری، یعنی الگو هنوز تایید نشده یا اسمش اشتباهه. پنل -> الگوها -> وضعیت را چک کن باید 'تایید شده' باشد."
             });
         }
 
