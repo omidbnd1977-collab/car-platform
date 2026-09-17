@@ -31,6 +31,8 @@ export default function VisitRequests() {
     const [search, setSearch] = useState("");
     const [updatingId, setUpdatingId] = useState(null);
     const [stats, setStats] = useState([]);
+    const [bulkMsg, setBulkMsg] = useState("");
+    const [bulkLoading, setBulkLoading] = useState(false);
 
     const load = async () => {
         try {
@@ -96,7 +98,61 @@ export default function VisitRequests() {
         }
     };
 
+    const exportCsv = async (onlyConsented) => {
+        try {
+            setError("");
+            setNotice("");
+            const q = onlyConsented ? "?consent=true" : "";
+            const url = apiUrl(`visit-requests/export/csv${q}`);
+            const res = await adminFetch(url);
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data?.error || `خطا ${res.status}`);
+            }
+            const blob = await res.blob();
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `visit-requests-${onlyConsented ? "consent-" : ""}${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setNotice(onlyConsented ? "فایل CSV شماره‌های رضایت‌دار دانلود شد." : "فایل CSV همه شماره‌ها دانلود شد.");
+        } catch (e) {
+            setError(e?.message || "خطا در خروجی CSV");
+        }
+    };
+
+    const sendBulk = async (dryRun = false) => {
+        if (!dryRun && !bulkMsg.trim()) {
+            setError("متن پیامک را وارد کنید.");
+            return;
+        }
+        try {
+            setBulkLoading(true);
+            setError("");
+            setNotice("");
+            const res = await adminFetch(apiUrl("visit-requests/bulk-sms"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: bulkMsg.trim(), dryRun }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.error || `خطا ${res.status}`);
+            if (dryRun) {
+                setNotice(`تست خشک: ${data.total} شماره رضایت‌دار موجود است. نمونه: ${(data.sample || []).join(", ")}`);
+            } else {
+                setNotice(`ارسال گروهی تمام شد: ${data.sent} موفق، ${data.failed} ناموفق از ${data.total} شماره.`);
+                setBulkMsg("");
+            }
+        } catch (e) {
+            setError(e?.message || "خطا در ارسال گروهی");
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
     const total = requests.length;
+    const consentedCount = requests.filter((r) => r.sms_consent).length;
 
     return (
         <div style={{ fontFamily: "Tahoma, Arial, sans-serif", direction: "rtl" }}>
@@ -105,7 +161,7 @@ export default function VisitRequests() {
                 <div>
                     <h2 style={{ margin: 0, fontSize: "22px" }}>درخواست‌های بازدید</h2>
                     <div style={{ color: "#777", fontSize: "12px", marginTop: "6px" }}>
-                        {total} درخواست · {stats.map((s) => `${s.status}: ${s.count}`).join(" · ")}
+                        {total} درخواست · رضایت‌دار: {consentedCount} · {stats.map((s) => `${s.status}: ${s.count}`).join(" · ")}
                     </div>
                 </div>
 
@@ -157,6 +213,18 @@ export default function VisitRequests() {
                         ↻ تازه‌سازی
                     </button>
                 </div>
+            </div>
+
+            {/* Bulk actions */}
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "18px", background: "#fff", padding: "14px", borderRadius: "10px", border: "1px solid #e5e5e5" }}>
+                <button type="button" onClick={() => exportCsv(true)} style={{ padding: "9px 14px", borderRadius: "8px", border: "1px solid #2e7d32", background: "#e8f5e9", color: "#1b5e20", cursor: "pointer", fontSize: "12px", fontWeight: 800 }}>📥 خروجی CSV رضایت‌دار ({consentedCount})</button>
+                <button type="button" onClick={() => exportCsv(false)} style={{ padding: "9px 14px", borderRadius: "8px", border: "1px solid #ccc", background: "#fff", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>📥 خروجی همه شماره‌ها</button>
+                <button type="button" onClick={() => sendBulk(true)} style={{ padding: "9px 14px", borderRadius: "8px", border: "1px solid #0d47a1", background: "#e3f2fd", color: "#0d47a1", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>👁️ تست تعداد رضایت‌دار</button>
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "18px", background: "#fff", padding: "14px", borderRadius: "10px", border: "1px solid #e5e5e5" }}>
+                <input type="text" value={bulkMsg} onChange={(e) => setBulkMsg(e.target.value)} placeholder="متن پیامک گروهی به رضایت‌دارها... مثال: خودرو جدید لندکروز موجود شد" style={{ flex: "1 1 300px", padding: "10px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "13px", fontFamily: "inherit" }} />
+                <button type="button" disabled={bulkLoading} onClick={() => sendBulk(false)} style={{ padding: "10px 18px", borderRadius: "8px", border: "none", background: bulkLoading ? "#999" : "#111", color: "#fff", cursor: "pointer", fontSize: "12px", fontWeight: 800 }}>{bulkLoading ? "در حال ارسال..." : "📤 ارسال گروهی به رضایت‌دارها"}</button>
             </div>
 
             {notice && (
