@@ -134,14 +134,13 @@ async function notifyAdminNewRequest({ firstName, lastName, mobile, carTitle, ca
     }
 
     const fullName = `${firstName} ${lastName}`.trim();
-    const useTemplate = adminTemplate || template; // اگر پترن ادمین جدا داری
+    const useTemplate = adminTemplate || template;
 
     const results = [];
     for (const adminMobile of adminMobiles) {
         try {
             let r;
             if (useTemplate) {
-                // Lookup: token=نام، token2=موبایل مشتری، token3=خودرو
                 r = await lookupViaKavenegar({
                     receptor: adminMobile,
                     template: useTemplate,
@@ -150,7 +149,6 @@ async function notifyAdminNewRequest({ firstName, lastName, mobile, carTitle, ca
                     token3: carTitle.slice(0,30),
                 });
             } else {
-                // Send معمولی
                 const message = `درخواست بازدید جدید\n${fullName}\n${mobile}\nخودرو: ${carTitle} (ID:${carId})\n${new Date().toLocaleString("fa-IR")}`;
                 r = await sendViaKavenegar({ receptor: adminMobile, message });
             }
@@ -163,13 +161,18 @@ async function notifyAdminNewRequest({ firstName, lastName, mobile, carTitle, ca
     return results;
 }
 
-// تایید به مشتری
+// تایید به مشتری - فقط اگر الگوی مشتری یا sender داری
 async function sendCustomerConfirmation({ mobile, firstName, carTitle }) {
-    const { enabled, template } = getConfig();
-    if (!enabled) return { skipped: true };
+    const { enabled, sender } = getConfig();
+    if (!enabled) return { skipped: true, reason: "disabled" };
 
-    // اگر پترن مشتری داری (مثلاً verify)، می‌تونی جدا تعریف کنی
     const customerTemplate = String(process.env.KAVENEGAR_CUSTOMER_TEMPLATE || "").trim();
+    const useLookupForCustomer = String(process.env.SMS_CUSTOMER_USE_LOOKUP || "").toLowerCase() === "true";
+
+    if (!customerTemplate && !useLookupForCustomer && !sender) {
+        console.log("Customer SMS skipped (no sender, no customer template) - admin only");
+        return { skipped: true, reason: "no sender/template for customer" };
+    }
 
     try {
         if (customerTemplate) {
@@ -179,8 +182,8 @@ async function sendCustomerConfirmation({ mobile, firstName, carTitle }) {
                 token: firstName.slice(0,30),
                 token2: carTitle.slice(0,30),
             });
-        } else if (template && String(process.env.SMS_CUSTOMER_USE_LOOKUP || "").toLowerCase() === "true") {
-            // اگر خواستی مشتری هم با همان پترن بره
+        } else if (useLookupForCustomer) {
+            const { template } = getConfig();
             return await lookupViaKavenegar({
                 receptor: mobile,
                 template,

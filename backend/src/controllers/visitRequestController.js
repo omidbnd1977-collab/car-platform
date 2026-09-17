@@ -193,30 +193,31 @@ exports.createVisitRequest = async (req, res) => {
         console.log(`VISIT REQUEST CREATED: #${result.rows[0].id} ${mobile} -> car ${car_id} ${car_title}`);
 
         // ارسال پیامک کاوه‌نگار به مدیر + تایید به مشتری (غیرمسدودکننده)
-        // اگر ENV ست نباشد، فقط لاگ می‌شود و درخواست موفق می‌ماند
         setImmediate(async () => {
             try {
                 const smsConf = smsService.getConfig();
+                console.log("SMS CONFIG CHECK:", { enabled: smsConf.enabled, template: smsConf.template, adminTemplate: smsConf.adminTemplate, adminCount: smsConf.adminMobiles.length, hasSender: Boolean(smsConf.sender) });
                 if (smsConf.enabled) {
-                    console.log("SMS: attempting admin notification to", smsConf.adminMobiles.join(","));
-                    await smsService.notifyAdminNewRequest({
+                    console.log("SMS: attempting admin notification to", smsConf.adminMobiles.join(","), "car:", car_title);
+                    const adminRes = await smsService.notifyAdminNewRequest({
                         firstName: first_name,
                         lastName: last_name,
                         mobile,
                         carTitle: car_title,
                         carId: car_id
                     });
-                    // تایید به مشتری (تراکنشی)
-                    await smsService.sendCustomerConfirmation({
+                    console.log("SMS ADMIN RESULT:", JSON.stringify(adminRes).slice(0, 1000));
+                    const custRes = await smsService.sendCustomerConfirmation({
                         mobile,
                         firstName: first_name,
                         carTitle: car_title
                     });
+                    console.log("SMS CUSTOMER RESULT:", JSON.stringify(custRes).slice(0, 500));
                 } else {
                     console.log("SMS: disabled (KAVENEGAR_API_KEY not set)");
                 }
             } catch (smsErr) {
-                console.error("SMS background error (non-critical):", smsErr.message);
+                console.error("SMS background error (non-critical):", smsErr.message, smsErr.stack ? smsErr.stack.slice(0, 800) : "");
             }
         });
 
