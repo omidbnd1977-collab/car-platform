@@ -319,5 +319,80 @@ exports.getVisitRequestById = async (req, res) => {
     }
 };
 
+// خروجی CSV برای پیامک گروهی - فقط شماره‌هایی که رضایت داده‌اند
+exports.exportVisitRequestsCsv = async (req, res) => {
+    try {
+        await ensureTable();
+        const { consent } = req.query; // consent=true فقط رضایت‌دارها
+        let where = "";
+        const values = [];
+        if (String(consent).toLowerCase() === "true" || consent === "1") {
+            where = "WHERE sms_consent = true";
+        }
+        // شماره‌های یکتا
+        const result = await db.query(
+            `SELECT DISTINCT ON (mobile) mobile, first_name, last_name, car_title, sms_consent, created_at
+             FROM visit_requests ${where}
+             ORDER BY mobile, created_at DESC`,
+            values
+        );
+
+        const rows = result.rows;
+        // CSV header
+        const header = "mobile,first_name,last_name,car_title,sms_consent,created_at\n";
+        const lines = rows.map((r) => {
+            const esc = (s) => `"${String(s || "").replace(/"/g, '""')}"`;
+            return `${r.mobile},${esc(r.first_name)},${esc(r.last_name)},${esc(r.car_title)},${r.sms_consent ? "yes" : "no"},${r.created_at ? new Date(r.created_at).toISOString() : ""}`;
+        });
+        const csv = header + lines.join("\n");
+
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename=visit-requests-${consent === "true" ? "consent-" : ""}${new Date().toISOString().slice(0,10)}.csv`);
+        return res.status(200).send("\uFEFF" + csv); // BOM for Excel Persian
+    } catch (e) {
+        console.error("EXPORT CSV ERROR:", e.message);
+        return res.status(500).json({ error: e.message });
+    }
+};
+
+// ارسال گروهی از طریق کاوه‌نگار - فقط ادمین
+exports.bulkSmsToConsented = async (req, res) => {
+    try {
+        await ensureTable();
+        const { message, template, dryRun } = req.body || {};
+        const smsService = require("../services/smsService");
+        const conf = smsService.getConfig();
+        if (!conf.enabled) return res.status(400).json({ error: "KAVENEGAR_API_KEY نیست" });
+
+        const q = await db.query(`SELECT DISTINCT ON (mobile) mobile, first_name FROM visit_requests WHERE sms_consent = true ORDER BY mobile, created_at DESC`);
+        const mobiles = q.rows.map((r) => r.mobile).filter(Boolean);
+
+        if (mobiles.length === 0) return res.json({ ok: true, total: 0, message: "هیچ شماره رضایت‌داری نیست" });
+        if (dryRun) return res.json({ ok: true, dryRun: true, total: mobiles.length, sample: mobiles.slice(0,5) });
+
+        // اگر template دادی، با Lookup گروهی (باید پنل کاوه‌نگار از bulk پشتیبانی کند - ما تک‌تک می‌فرستیم با فاصله)
+        const results = [];
+        for (const row of q.rows) {
+            try {
+                let r;
+                if (template) {
+                    r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template, token: String(row.first_name || "کاربر").replace(/\s+/g,"-").slice(0,20) });
+                } else {
+                    if (!message) throw new Error("message یا template لازم است");
+                    r = await smsService.sendViaKavenegar({ receptor: row.mobile, message });
+                }
+                results.push({ mobile: row.mobile, ok: true });
+                await new Promise((res) => setTimeout(res, 400)); // ضد اسپم کاوه‌نگار
+            } catch (e) {
+                results.push({ mobile: row.mobile, ok: false, error: e.message });
+            }
+        }
+        return res.json({ ok: true, total: mobiles.length, sent: results.filter((r)=>r.ok).length, failed: results.filter((r)=>!r.ok).length, results });
+    } catch (e) {
+        console.error("BULK SMS ERROR:", e.message);
+        return res.status(500).json({ error: e.message });
+    }
+};
+
 exports.ensureTable = ensureTable;
 exports.ALLOWED_STATUSES = ALLOWED_STATUSES;
