@@ -364,22 +364,21 @@ exports.bulkSmsToConsented = async (req, res) => {
         const conf = smsService.getConfig();
         if (!conf.enabled) return res.status(400).json({ error: "KAVENEGAR_API_KEY نیست" });
 
+        const sanitize = (s) => String(s || "").trim().replace(/\s+/g, "-").replace(/[^\w\u0600-\u06FF\-.,!?:;()]/g, "").slice(0, 60) || "x";
+        const sanitizeName = (s) => String(s || "").trim().replace(/\s+/g, "-").replace(/[^\w\u0600-\u06FF\-]/g, "").slice(0, 30) || "کاربر";
+
         let rows = [];
         if (Array.isArray(selectedMobiles) && selectedMobiles.length > 0) {
-            // فقط شماره‌های انتخاب شده از فرانت
             const cleaned = selectedMobiles.map((m) => String(m).trim()).filter((m) => /^09\d{9}$/.test(m));
             if (cleaned.length === 0) return res.status(400).json({ error: "شماره معتبر انتخاب نشده" });
-            // اطلاعات نام را هم بگیر
-            const q = await db.query(`SELECT DISTINCT ON (mobile) mobile, first_name FROM visit_requests WHERE mobile = ANY($1) ORDER BY mobile, created_at DESC`, [cleaned]);
+            const q = await db.query(`SELECT DISTINCT ON (mobile) mobile, first_name, last_name FROM visit_requests WHERE mobile = ANY($1) ORDER BY mobile, created_at DESC`, [cleaned]);
             rows = q.rows;
-            // اگر شماره‌ای تو DB نبود (تست)، با نام پیش‌فرض بساز
             const foundMobiles = new Set(rows.map((r) => r.mobile));
             for (const m of cleaned) {
-                if (!foundMobiles.has(m)) rows.push({ mobile: m, first_name: "کاربر" });
+                if (!foundMobiles.has(m)) rows.push({ mobile: m, first_name: "کاربر", last_name: "" });
             }
         } else {
-            // همه رضایت‌دارها
-            const q = await db.query(`SELECT DISTINCT ON (mobile) mobile, first_name FROM visit_requests WHERE sms_consent = true ORDER BY mobile, created_at DESC`);
+            const q = await db.query(`SELECT DISTINCT ON (mobile) mobile, first_name, last_name FROM visit_requests WHERE sms_consent = true ORDER BY mobile, created_at DESC`);
             rows = q.rows;
         }
 
@@ -389,29 +388,59 @@ exports.bulkSmsToConsented = async (req, res) => {
 
         if (!message && !template) return res.status(400).json({ error: "متن پیامک را وارد کنید" });
 
+        // الگوی گروهی: اگر bulk-greeting داری، از آن استفاده کن: "آقای %token% عزیز %token2%"
+        // وگرنه از template داده شده یا admin-notify یا verify
+        let bulkTemplate = template || process.env.KAVENEGAR_BULK_TEMPLATE || "bulk-greeting";
+        // چک کن آیا bulk-greeting وجود دارد، اگر نه fallback
+        const tryTemplates = [bulkTemplate, "bulk-greeting", "admin-notify", "verify", conf.template].filter(Boolean);
+        // حذف تکراری
+        const uniqTemplates = [...new Set(tryTemplates)];
+
         const results = [];
         for (const row of rows) {
-            try {
-                let r;
-                if (template) {
-                    r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template, token: String(row.first_name || "کاربر").replace(/\s+/g,"-").slice(0,20) });
-                } else {
-                    // اگر sender نداری و lookup داری، با lookup بفرست (چون Send نیاز به sender دارد)
-                    if (!conf.sender && conf.template) {
-                        r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: conf.template, token: String(row.first_name || "کاربر").replace(/\s+/g,"-").slice(0,20), token2: String(message).slice(0,30).replace(/\s+/g,"-"), token3: "گروهی" });
+            const fullName = `${row.first_name || ""} ${row.last_name || ""}`.trim() || "کاربر";
+            const fullNameSafe = sanitizeName(fullName);
+            const msgSafe = sanitize(message || "");
+
+            let sent = false;
+            let lastErr = "";
+            for (const tmpl of uniqTemplates) {
+                try {
+                    let r;
+                    if (conf.sender) {
+                        // اگر sender داری، متن کامل فارسی
+                        const fullText = `آقای ${fullName} عزیز ${message}`;
+                        r = await smsService.sendViaKavenegar({ receptor: row.mobile, message: fullText });
                     } else {
-                        r = await smsService.sendViaKavenegar({ receptor: row.mobile, message });
+                        if (tmpl === "bulk-greeting") {
+                            // الگوی پیشنهادی: آقای %token% عزیز %token2%
+                            r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: tmpl, token: fullNameSafe, token2: msgSafe });
+                        } else if (tmpl === "admin-notify") {
+                            r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: tmpl, token: fullNameSafe, token2: row.mobile, token3: msgSafe });
+                        } else if (tmpl === "verify") {
+                            r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: tmpl, token: msgSafe });
+                        } else {
+                            r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: tmpl, token: fullNameSafe, token2: msgSafe });
+                        }
                     }
+                    results.push({ mobile: row.mobile, ok: true, method: r.method || "lookup", template: tmpl });
+                    sent = true;
+                    break;
+                } catch (e) {
+                    lastErr = e.message;
+                    // اگر template پیدا نشد، بعدی را امتحان کن
+                    if (e.message.includes("424") || e.message.includes("پیدا نشد")) continue;
+                    else break; // خطای دیگه (مثل 431) را نگه دار
                 }
-                results.push({ mobile: row.mobile, ok: true });
-                await new Promise((res) => setTimeout(res, 400));
-            } catch (e) {
-                results.push({ mobile: row.mobile, ok: false, error: e.message });
             }
+            if (!sent) {
+                results.push({ mobile: row.mobile, ok: false, error: lastErr });
+            }
+            await new Promise((res) => setTimeout(res, 600));
         }
-        return res.json({ ok: true, total: mobiles.length, sent: results.filter((r)=>r.ok).length, failed: results.filter((r)=>!r.ok).length, results });
+        return res.json({ ok: true, total: mobiles.length, sent: results.filter((r)=>r.ok).length, failed: results.filter((r)=>!r.ok).length, results, usedTemplate: uniqTemplates[0], hasSender: Boolean(conf.sender), hint: "برای متن 'آقای نام عزیز ...' الگوی bulk-greeting بساز: آقای %token% عزیز %token2%" });
     } catch (e) {
-        console.error("BULK SMS ERROR:", e.message);
+        console.error("BULK SMS ERROR:", e.message, e.stack);
         return res.status(500).json({ error: e.message });
     }
 };
