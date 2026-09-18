@@ -98,8 +98,7 @@ exports.bulkSmsToConsented=async(req,res)=>{
         const smsService=require("../services/smsService");
         const conf=smsService.getConfig();
         if(!conf.enabled) return res.status(400).json({error:"KAVENEGAR_API_KEY نیست"});
-        const cleanSpace=(s)=>String(s||"").replace(/%/g,"").trim().slice(0,50)||"کاربر";
-        const cleanDash=(s)=>String(s||"").replace(/%/g,"").trim().replace(/\s+/g,"-").slice(0,30)||"x";
+        const clean=(s)=>String(s||"").replace(/%/g,"").trim().slice(0,80)||"x";
         let rows=[];
         if(Array.isArray(selectedMobiles)&&selectedMobiles.length>0){
             const cleaned=selectedMobiles.map((m)=>String(m).trim()).filter((m)=>/^09\d{9}$/.test(m));
@@ -118,29 +117,26 @@ exports.bulkSmsToConsented=async(req,res)=>{
         const results=[];
         for(const row of rows){
             const fullName=`${row.first_name||""} ${row.last_name||""}`.trim()||"کاربر";
-            const nameSpace=cleanSpace(fullName);
-            const nameDash=cleanDash(fullName);
-            const msgSpace=cleanSpace(message);
-            const msgDash=cleanDash(message);
-            let sent=false; let lastErr="";
+            const nameClean=clean(fullName);
+            const msgClean=clean(message);
             try{
-                let r=await smsService.lookupViaKavenegar({receptor:row.mobile,template:bulkTemplate,token:nameSpace,token2:msgSpace});
-                results.push({mobile:row.mobile,ok:true,template:bulkTemplate,withSpace:true});
-                sent=true;
-            }catch(e){
-                lastErr=e.message;
-                if(e.message.includes("431")){
-                    try{
-                        let r2=await smsService.lookupViaKavenegar({receptor:row.mobile,template:bulkTemplate,token:nameDash,token2:msgDash});
-                        results.push({mobile:row.mobile,ok:true,template:bulkTemplate,withSpace:false,note:"dash"});
-                        sent=true;
-                    }catch(e2){lastErr=e2.message;}
+                let r;
+                if(conf.sender){
+                    // با sender - متن کامل با فاصله - بدون -
+                    const fullText=`آقای ${fullName} عزیز ${message}`;
+                    r=await smsService.sendViaKavenegar({receptor:row.mobile,message:fullText});
+                }else{
+                    const dashName=nameClean.replace(/\s+/g,"-");
+                    const dashMsg=msgClean.replace(/\s+/g,"-");
+                    r=await smsService.lookupViaKavenegar({receptor:row.mobile,template:bulkTemplate,token:dashName,token2:dashMsg});
                 }
+                results.push({mobile:row.mobile,ok:true,template:bulkTemplate,hasSender:Boolean(conf.sender)});
+            }catch(e){
+                results.push({mobile:row.mobile,ok:false,error:e.message});
             }
-            if(!sent) results.push({mobile:row.mobile,ok:false,error:lastErr});
             await new Promise((r)=>setTimeout(r,600));
         }
-        return res.json({ok:true,total:mobiles.length,sent:results.filter((r)=>r.ok).length,failed:results.filter((r)=>!r.ok).length,results});
+        return res.json({ok:true,total:mobiles.length,sent:results.filter((r)=>r.ok).length,failed:results.filter((r)=>!r.ok).length,results,hasSender:Boolean(conf.sender)});
     }catch(e){
         console.error("BULK SMS ERROR:",e.message,e.stack);
         return res.status(500).json({error:e.message});
