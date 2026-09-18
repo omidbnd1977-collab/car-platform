@@ -29,7 +29,8 @@ import { adminFetch, readError } from "../utils/adminAuth";
 
 const STATUS_OPTIONS = [
     { value: "ACTIVE", label: "فعال — در سایت نمایش داده می‌شود" },
-    { value: "HIDDEN", label: "مخفی — از سایت خارج می‌شود" },
+    { value: "SOLD", label: "🏁 فروخته شد — می‌رود به آرشیو فروش حرفه‌ای (از سایت خارج می‌شود)" },
+    { value: "HIDDEN", label: "فروخته شد — از سایت خارج می‌شود" },
 ];
 
 function startForm(car) {
