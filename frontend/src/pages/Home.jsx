@@ -192,10 +192,7 @@ function Home() {
                                 <div style={{ color: "#777", fontSize: "11px", letterSpacing: "3px", fontWeight: 700, marginBottom: "7px" }}>AVAILABLE VEHICLES</div>
                                 <h2 style={{ margin: 0, color: "#fff", fontSize: "30px", lineHeight: 1.1 }}>Cars</h2>
                             </div>
-                            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                                <button type="button" onClick={() => { window.location.href = "/#sold"; }} style={{ padding: "9px 16px", borderRadius: "999px", background: "rgba(212,175,55,0.10)", border: "1px solid rgba(212,175,55,0.30)", color: "#d4af37", fontSize: "12px", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>🏁 فروخته شده‌ها</button>
-                                <div style={{ padding: "9px 14px", borderRadius: "999px", background: "#111", border: "1px solid #292929", color: "#bbb", fontSize: "13px", fontWeight: 700 }}>{filteredCars.length} {filteredCars.length === 1 ? "vehicle" : "vehicles"}</div>
-                            </div>
+                            <div style={{ padding: "9px 14px", borderRadius: "999px", background: "#111", border: "1px solid #292929", color: "#bbb", fontSize: "13px", fontWeight: 700 }}>{filteredCars.length} {filteredCars.length === 1 ? "vehicle" : "vehicles"}</div>
                         </div>
 
                         <section aria-label="Quick contact" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "8px", marginBottom: "18px", direction: "rtl" }}>
