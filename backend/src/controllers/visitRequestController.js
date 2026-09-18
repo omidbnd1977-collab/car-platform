@@ -158,9 +158,7 @@ exports.bulkSmsToConsented = async (req, res) => {
         const conf = smsService.getConfig();
         if (!conf.enabled) return res.status(400).json({ error: "KAVENEGAR_API_KEY نیست" });
 
-        // فقط % را حذف کن، فاصله را نگه دار
-        const clean = (s) => String(s||"").replace(/%/g, "").trim().slice(0, 60) || "x";
-        const cleanName = (s) => String(s||"").replace(/%/g, "").trim().slice(0, 30) || "کاربر";
+        const cleanDash = (s) => String(s||"").replace(/%/g, "").trim().replace(/\s+/g, "-").slice(0, 30) || "x";
 
         let rows = [];
         if (Array.isArray(selectedMobiles) && selectedMobiles.length > 0) {
@@ -180,21 +178,23 @@ exports.bulkSmsToConsented = async (req, res) => {
         if (dryRun) return res.json({ ok: true, dryRun: true, total: mobiles.length, sample: mobiles.slice(0,5) });
         if (!message) return res.status(400).json({ error: "متن را وارد کنید" });
 
+        // با - کار کنیم
         const bulkTemplate = template || "bulk-greeting";
         const results = [];
         for (const row of rows) {
             const fullName = `${row.first_name||""} ${row.last_name||""}`.trim() || "کاربر";
-            const nameClean = cleanName(fullName);
-            const msgClean = clean(message);
+            const nameDash = cleanDash(fullName);
+            const msgDash = cleanDash(message);
 
             try {
-                // فقط token و token2 - بدون % اضافی
-                let r = await smsService.lookupViaKavenegar({
-                    receptor: row.mobile,
-                    template: bulkTemplate,
-                    token: nameClean,
-                    token2: msgClean
-                });
+                let r;
+                if (bulkTemplate === "bulk-greeting") {
+                    r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: bulkTemplate, token: nameDash, token2: msgDash });
+                } else if (bulkTemplate === "verify") {
+                    r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: bulkTemplate, token: msgDash });
+                } else {
+                    r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: bulkTemplate, token: nameDash, token2: msgDash });
+                }
                 results.push({ mobile: row.mobile, ok: true, template: bulkTemplate });
             } catch (e) {
                 results.push({ mobile: row.mobile, ok: false, error: e.message });
