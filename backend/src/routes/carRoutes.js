@@ -6,6 +6,7 @@ const adminGuard = require("../middleware/adminGuard");
 
 // خواندن — عمومی (سایت و اپ همین‌ها را لازم دارد)
 router.get("/", carController.getCars);
+router.get("/sold", carController.getSoldCars);
 router.get("/:id", carController.getCarById);
 
 // نوشتن — با رمز ادمین (adminGuard). اگر ADMIN_API_KEY تنظیم نشده
