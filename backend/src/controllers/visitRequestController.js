@@ -17,7 +17,6 @@ function normalizeMobile(input) {
 }
 function isValidIranMobile(m){return /^09\d{9}$/.test(m);}
 function validateName(n){const t=String(n||"").trim(); if(t.length<2||t.length>80) return false; return /^[\u0600-\u06FFa-zA-Z\s\-']{2,80}$/.test(t);}
-
 exports.createVisitRequest = async (req,res)=>{
     try{
         await ensureTable();
@@ -44,9 +43,7 @@ exports.createVisitRequest = async (req,res)=>{
         return res.status(201).json({message:"درخواست شما با موفقیت ثبت شد",request:result.rows[0]});
     }catch(e){console.error("CREATE VISIT ERROR:",e.message,e.stack); return res.status(500).json({error:"خطا در ثبت درخواست: "+e.message});}
 };
-
 const ALLOWED_STATUSES=["جدید","در حال پیگیری","تماس گرفته شد","بازدید انجام شد","بسته شد"];
-
 exports.getVisitRequests=async(req,res)=>{
     try{
         await ensureTable();
@@ -61,7 +58,6 @@ exports.getVisitRequests=async(req,res)=>{
         return res.json({requests:result.rows,total:countResult.rows[0].total,stats:statsResult.rows});
     }catch(e){return res.status(500).json({error:e.message});}
 };
-
 exports.updateVisitRequestStatus=async(req,res)=>{
     try{
         await ensureTable();
@@ -73,7 +69,6 @@ exports.updateVisitRequestStatus=async(req,res)=>{
         return res.json({message:"وضعیت بروزرسانی شد",request:result.rows[0]});
     }catch(e){return res.status(500).json({error:e.message});}
 };
-
 exports.getVisitRequestById=async(req,res)=>{
     try{
         await ensureTable();
@@ -83,7 +78,6 @@ exports.getVisitRequestById=async(req,res)=>{
         return res.json({request:result.rows[0]});
     }catch(e){return res.status(500).json({error:e.message});}
 };
-
 exports.exportVisitRequestsCsv=async(req,res)=>{
     try{
         await ensureTable();
@@ -97,7 +91,6 @@ exports.exportVisitRequestsCsv=async(req,res)=>{
         return res.status(200).send("\uFEFF"+csv);
     }catch(e){return res.status(500).json({error:e.message});}
 };
-
 exports.bulkSmsToConsented=async(req,res)=>{
     try{
         await ensureTable();
@@ -105,7 +98,7 @@ exports.bulkSmsToConsented=async(req,res)=>{
         const smsService=require("../services/smsService");
         const conf=smsService.getConfig();
         if(!conf.enabled) return res.status(400).json({error:"KAVENEGAR_API_KEY نیست"});
-        const cleanSpace=(s)=>String(s||"").replace(/%/g,"").trim().slice(0,40)||"کاربر";
+        const cleanSpace=(s)=>String(s||"").replace(/%/g,"").trim().slice(0,50)||"کاربر";
         const cleanDash=(s)=>String(s||"").replace(/%/g,"").trim().replace(/\s+/g,"-").slice(0,30)||"x";
         let rows=[];
         if(Array.isArray(selectedMobiles)&&selectedMobiles.length>0){
@@ -121,7 +114,7 @@ exports.bulkSmsToConsented=async(req,res)=>{
         if(!mobiles.length) return res.json({ok:true,total:0,message:"هیچ شماره‌ای نیست"});
         if(dryRun) return res.json({ok:true,dryRun:true,total:mobiles.length,sample:mobiles.slice(0,5)});
         if(!message) return res.status(400).json({error:"متن را وارد کنید"});
-        const bulkTemplate=template||"verify1";
+        const bulkTemplate=template||"bulk-greeting";
         const results=[];
         for(const row of rows){
             const fullName=`${row.first_name||""} ${row.last_name||""}`.trim()||"کاربر";
@@ -131,16 +124,18 @@ exports.bulkSmsToConsented=async(req,res)=>{
             const msgDash=cleanDash(message);
             let sent=false; let lastErr="";
             try{
-                let r=await smsService.lookupViaKavenegar({receptor:row.mobile,template:bulkTemplate,token:"x",token10:nameSpace,token20:msgSpace});
+                let r=await smsService.lookupViaKavenegar({receptor:row.mobile,template:bulkTemplate,token:nameSpace,token2:msgSpace});
                 results.push({mobile:row.mobile,ok:true,template:bulkTemplate,withSpace:true});
                 sent=true;
             }catch(e){
                 lastErr=e.message;
-                try{
-                    let r2=await smsService.lookupViaKavenegar({receptor:row.mobile,template:bulkTemplate,token:"x",token10:nameDash,token20:msgDash});
-                    results.push({mobile:row.mobile,ok:true,template:bulkTemplate,withSpace:false,note:"dash"});
-                    sent=true;
-                }catch(e2){lastErr=e2.message;}
+                if(e.message.includes("431")){
+                    try{
+                        let r2=await smsService.lookupViaKavenegar({receptor:row.mobile,template:bulkTemplate,token:nameDash,token2:msgDash});
+                        results.push({mobile:row.mobile,ok:true,template:bulkTemplate,withSpace:false,note:"dash"});
+                        sent=true;
+                    }catch(e2){lastErr=e2.message;}
+                }
             }
             if(!sent) results.push({mobile:row.mobile,ok:false,error:lastErr});
             await new Promise((r)=>setTimeout(r,600));
@@ -151,6 +146,5 @@ exports.bulkSmsToConsented=async(req,res)=>{
         return res.status(500).json({error:e.message});
     }
 };
-
 exports.ensureTable=ensureTable;
 exports.ALLOWED_STATUSES=ALLOWED_STATUSES;
