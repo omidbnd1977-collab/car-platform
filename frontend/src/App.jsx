@@ -1,16 +1,15 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Home from "./pages/Home";
 import AdminCars from "./pages/AdminCars";
 import SoldCars from "./pages/SoldCars";
 import QRPrintSheet from "./components/QRPrintSheet";
 import "./App.css";
 
-function App() {
+function getRoute() {
     const path = window.location.pathname.replace(/\/+$/, "") || "/";
     const search = window.location.search || "";
     const hash = window.location.hash || "";
 
-    // QR پرینت A4 حرفه‌ای - هر شاخه QR مخصوص خودش
     const isQR =
         path === "/qr" ||
         path === "/print-qr" ||
@@ -20,7 +19,6 @@ function App() {
         search.includes("print") ||
         hash.includes("qr");
 
-    // ادمین - پشتیبانی از /admin و ?admin (Render static 404 fix)
     const isAdmin =
         !isQR &&
         (path === "/admin" ||
@@ -28,7 +26,6 @@ function App() {
             search.includes("admin") ||
             hash.includes("admin"));
 
-    // صفحه خودروهای فروخته شده - حرفه‌ای
     const isSold =
         !isQR &&
         !isAdmin &&
@@ -37,18 +34,28 @@ function App() {
             search.includes("sold") ||
             hash.includes("sold"));
 
-    if (isQR) {
-        return <QRPrintSheet />;
-    }
+    if (isQR) return "qr";
+    if (isAdmin) return "admin";
+    if (isSold) return "sold";
+    return "home";
+}
 
-    if (isAdmin) {
-        return <AdminCars />;
-    }
+function App() {
+    const [route, setRoute] = useState(() => getRoute());
 
-    if (isSold) {
-        return <SoldCars />;
-    }
+    useEffect(() => {
+        const onChange = () => setRoute(getRoute());
+        window.addEventListener("hashchange", onChange);
+        window.addEventListener("popstate", onChange);
+        return () => {
+            window.removeEventListener("hashchange", onChange);
+            window.removeEventListener("popstate", onChange);
+        };
+    }, []);
 
+    if (route === "qr") return <QRPrintSheet />;
+    if (route === "admin") return <AdminCars />;
+    if (route === "sold") return <SoldCars />;
     return <Home />;
 }
 
