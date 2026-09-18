@@ -193,7 +193,7 @@ function Home() {
                                 <h2 style={{ margin: 0, color: "#fff", fontSize: "30px", lineHeight: 1.1 }}>Cars</h2>
                             </div>
                             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                                <button type="button" onClick={() => { window.location.href = "/sold"; }} style={{ padding: "9px 16px", borderRadius: "999px", background: "rgba(212,175,55,0.10)", border: "1px solid rgba(212,175,55,0.30)", color: "#d4af37", fontSize: "12px", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>🏁 فروخته شده‌ها</button>
+                                <button type="button" onClick={() => { window.location.href = "/#sold"; }} style={{ padding: "9px 16px", borderRadius: "999px", background: "rgba(212,175,55,0.10)", border: "1px solid rgba(212,175,55,0.30)", color: "#d4af37", fontSize: "12px", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>🏁 فروخته شده‌ها</button>
                                 <div style={{ padding: "9px 14px", borderRadius: "999px", background: "#111", border: "1px solid #292929", color: "#bbb", fontSize: "13px", fontWeight: 700 }}>{filteredCars.length} {filteredCars.length === 1 ? "vehicle" : "vehicles"}</div>
                             </div>
                         </div>
@@ -219,7 +219,7 @@ function Home() {
 
                     <aside style={{ gridColumn: "2", gridRow: "1", alignSelf: "start", width: "100%", boxSizing: "border-box", background: "rgba(15, 15, 15, 0.88)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: "22px", padding: "22px", boxShadow: "0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", direction: "rtl" }}>
                         <div style={{ marginBottom: "18px" }}>
-                            <button type="button" onClick={() => { window.location.href = "/sold"; }} style={{ width: "100%", padding: "13px 16px", borderRadius: "12px", border: "1px solid rgba(212,175,55,0.35)", background: "linear-gradient(135deg, rgba(212,175,55,0.15) 0%, rgba(212,175,55,0.05) 100%)", color: "#d4af37", cursor: "pointer", fontSize: "13px", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", letterSpacing: "0.5px", boxShadow: "0 4px 18px rgba(212,175,55,0.12), inset 0 1px 0 rgba(255,255,255,0.06)", transition: "all 0.2s" }}>
+                            <button type="button" onClick={() => { window.location.href = "/#sold"; }} style={{ width: "100%", padding: "13px 16px", borderRadius: "12px", border: "1px solid rgba(212,175,55,0.35)", background: "linear-gradient(135deg, rgba(212,175,55,0.15) 0%, rgba(212,175,55,0.05) 100%)", color: "#d4af37", cursor: "pointer", fontSize: "13px", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", letterSpacing: "0.5px", boxShadow: "0 4px 18px rgba(212,175,55,0.12), inset 0 1px 0 rgba(255,255,255,0.06)", transition: "all 0.2s" }}>
                                 <span style={{ fontSize: "16px" }}>🏁</span>
                                 خودروهای فروخته شده
                                 <span style={{ background: "#c62828", color: "#fff", fontSize: "9px", padding: "2px 7px", borderRadius: "999px", fontWeight: 900 }}>SOLD</span>
