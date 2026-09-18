@@ -1242,7 +1242,7 @@ dealerships.city
 
 
 
-ORDER BY COALESCE(cars.sold_at, cars.updated_at, cars.created_at) DESC
+ORDER BY COALESCE(cars.sold_at, cars.created_at) DESC
 
 
 `
