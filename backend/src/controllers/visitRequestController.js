@@ -158,7 +158,7 @@ exports.bulkSmsToConsented = async (req, res) => {
         const conf = smsService.getConfig();
         if (!conf.enabled) return res.status(400).json({ error: "KAVENEGAR_API_KEY نیست" });
 
-        const cleanDash = (s) => String(s||"").replace(/%/g, "").trim().replace(/\s+/g, "-").slice(0, 30) || "x";
+        const clean = (s) => String(s||"").replace(/%/g, "").trim().slice(0, 80) || "x";
 
         let rows = [];
         if (Array.isArray(selectedMobiles) && selectedMobiles.length > 0) {
@@ -178,30 +178,44 @@ exports.bulkSmsToConsented = async (req, res) => {
         if (dryRun) return res.json({ ok: true, dryRun: true, total: mobiles.length, sample: mobiles.slice(0,5) });
         if (!message) return res.status(400).json({ error: "متن را وارد کنید" });
 
-        // با - کار کنیم
-        const bulkTemplate = template || "bulk-greeting";
+        // الگوی جدید کاربر: verify1 = سلام %token آقای %token10، خودرو %token20
+        // می‌خواد فقط متن پیام خودش بیاد بدون % و -
+        const bulkTemplate = template || "verify1";
         const results = [];
         for (const row of rows) {
             const fullName = `${row.first_name||""} ${row.last_name||""}`.trim() || "کاربر";
-            const nameDash = cleanDash(fullName);
-            const msgDash = cleanDash(message);
+            const nameClean = clean(fullName);
+            const msgClean = clean(message);
 
             try {
-                let r;
-                if (bulkTemplate === "bulk-greeting") {
-                    r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: bulkTemplate, token: nameDash, token2: msgDash });
-                } else if (bulkTemplate === "verify") {
-                    r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: bulkTemplate, token: msgDash });
-                } else {
-                    r = await smsService.lookupViaKavenegar({ receptor: row.mobile, template: bulkTemplate, token: nameDash, token2: msgDash });
-                }
+                // برای verify1: token = سلام (یا خالی)، token10 = نام، token20 = متن پیام
+                let r = await smsService.lookupViaKavenegar({
+                    receptor: row.mobile,
+                    template: bulkTemplate,
+                    token: " ", // %token% - فاصله خالی که سلام اولش هست
+                    token10: nameClean, // %token10% = نام
+                    token20: msgClean // %token20% = متن پیام
+                });
                 results.push({ mobile: row.mobile, ok: true, template: bulkTemplate });
             } catch (e) {
-                results.push({ mobile: row.mobile, ok: false, error: e.message });
+                // fallback با token معمولی
+                try {
+                    let r2 = await smsService.lookupViaKavenegar({
+                        receptor: row.mobile,
+                        template: bulkTemplate,
+                        token: nameClean,
+                        token2: msgClean,
+                        token10: nameClean,
+                        token20: msgClean
+                    });
+                    results.push({ mobile: row.mobile, ok: true, template: bulkTemplate, fallback: true });
+                } catch (e2) {
+                    results.push({ mobile: row.mobile, ok: false, error: e2.message });
+                }
             }
             await new Promise((r) => setTimeout(r, 600));
         }
-        return res.json({ ok: true, total: mobiles.length, sent: results.filter((r)=>r.ok).length, failed: results.filter((r)=>!r.ok).length, results });
+        return res.json({ ok: true, total: mobiles.length, sent: results.filter((r)=>r.ok).length, failed: results.filter((r)=>!r.ok).length, results, usedTemplate: bulkTemplate });
     } catch (e) {
         console.error("BULK SMS ERROR:", e.message, e.stack);
         return res.status(500).json({ error: e.message });
