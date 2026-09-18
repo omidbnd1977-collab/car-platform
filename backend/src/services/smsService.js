@@ -7,10 +7,9 @@ function getConfig() {
     const template = String(process.env.KAVENEGAR_TEMPLATE || process.env.SMS_TEMPLATE || "").trim();
     const adminTemplate = String(process.env.KAVENEGAR_ADMIN_TEMPLATE || process.env.SMS_ADMIN_TEMPLATE || "").trim();
     const enabled = Boolean(apiKey);
-    const adminMobiles = adminMobileRaw.split(/[,\s]+/).map((m) => String(m).trim()).filter(Boolean);
+    const adminMobiles = adminMobileRaw.split(/[\s,]+/).map((m) => String(m).trim()).filter(Boolean);
     return { apiKey, sender, adminMobiles, template, adminTemplate, enabled };
 }
-
 function normalizeReceptor(mobile) {
     let s = String(mobile || "").trim().replace(/[\s\-\(\)]/g, "");
     if (s.startsWith("+98")) s = "0" + s.slice(3);
@@ -19,7 +18,6 @@ function normalizeReceptor(mobile) {
     if (/^9\d{9}$/.test(s)) s = "0" + s;
     return s;
 }
-
 async function sendViaKavenegar({ receptor, message, sender }) {
     const { apiKey, sender: defaultSender } = getConfig();
     if (!apiKey) return { skipped: true };
@@ -35,7 +33,7 @@ async function sendViaKavenegar({ receptor, message, sender }) {
         const res = await axios.post(url, params.toString(), { headers: { "Content-Type": "application/x-www-form-urlencoded" }, timeout: 10000 });
         const data = res.data || {};
         if (data.return && data.return.status === 200) {
-            console.log(`SMS SEND to ${finalReceptor}: ${String(message).slice(0,50)}`);
+            console.log(`SMS SEND to ${finalReceptor}: ${String(message).slice(0,80)}`);
             return { ok: true, data, method: "send" };
         } else {
             console.error("KAVENEGAR SEND ERROR:", JSON.stringify(data).slice(0,500));
@@ -47,7 +45,6 @@ async function sendViaKavenegar({ receptor, message, sender }) {
         throw new Error("ارسال پیامک ناموفق: " + msg);
     }
 }
-
 async function lookupViaKavenegar({ receptor, template, token, token2, token3, token10, token20 }) {
     const { apiKey } = getConfig();
     if (!apiKey) return { skipped: true };
@@ -79,34 +76,33 @@ async function lookupViaKavenegar({ receptor, template, token, token2, token3, t
         throw new Error("Lookup ناموفق: " + msg);
     }
 }
-
 async function notifyAdminNewRequest({ firstName, lastName, mobile, carTitle, carId }) {
-    const { adminMobiles, enabled, adminTemplate, template } = getConfig();
+    const { adminMobiles, enabled, adminTemplate, template, sender } = getConfig();
     if (!enabled || adminMobiles.length === 0) {
         console.log("SMS: ADMIN_MOBILE not set, admin notification skipped");
         return { skipped: true };
     }
-    // Fix 431: کاوه‌نگار توکن با فاصله یا کاراکتر خاص را رد می‌کند - فاصله را به - تبدیل کن
-    const sanitize = (s) => String(s || "").trim().replace(/\s+/g, "-").replace(/[^\w\u0600-\u06FF\-]/g, "").slice(0, 30) || "x";
-    const fullNameRaw = `${firstName} ${lastName}`.trim();
-    const fullName = sanitize(fullNameRaw);
-    const carSafe = sanitize(carTitle);
-    const useTemplate = adminTemplate || template;
+    const fullNameRaw = `${firstName} ${lastName}`.trim() || "کاربر";
+    const carRaw = String(carTitle || "").trim() || `ID:${carId}`;
     const results = [];
     for (const adminMobile of adminMobiles) {
         try {
             let r;
-            if (useTemplate) {
-                r = await lookupViaKavenegar({
-                    receptor: adminMobile,
-                    template: useTemplate,
-                    token: fullName,
-                    token2: mobile,
-                    token3: carSafe,
-                });
-            } else {
-                const message = `درخواست بازدید جدید\n${fullNameRaw}\n${mobile}\nخودرو: ${carTitle} (ID:${carId})\n${new Date().toLocaleString("fa-IR")}`;
+            if (sender) {
+                // با خط خدماتی - بدون - و با فاصله کامل
+                const message = `درخواست بازدید جدید
+نام: ${fullNameRaw}
+شماره: ${mobile}
+خودرو: ${carRaw}
+${new Date().toLocaleString("fa-IR")}`;
                 r = await sendViaKavenegar({ receptor: adminMobile, message });
+            } else {
+                // بدون sender - Lookup با -
+                const sanitize = (s) => String(s || "").trim().replace(/\s+/g, "-").replace(/[^\w\u0600-\u06FF\-]/g, "").slice(0, 30) || "x";
+                const fullName = sanitize(fullNameRaw);
+                const carSafe = sanitize(carRaw);
+                const useTemplate = adminTemplate || template || "admin-notify";
+                r = await lookupViaKavenegar({ receptor: adminMobile, template: useTemplate, token: fullName, token2: mobile, token3: carSafe });
             }
             results.push({ mobile: adminMobile, ok: true, method: r.method });
         } catch (e) {
@@ -116,7 +112,6 @@ async function notifyAdminNewRequest({ firstName, lastName, mobile, carTitle, ca
     }
     return results;
 }
-
 async function sendCustomerConfirmation({ mobile, firstName, carTitle }) {
     const { enabled, sender } = getConfig();
     if (!enabled) return { skipped: true, reason: "disabled" };
@@ -141,5 +136,4 @@ async function sendCustomerConfirmation({ mobile, firstName, carTitle }) {
         return { ok: false, error: e.message };
     }
 }
-
 module.exports = { getConfig, sendViaKavenegar, lookupViaKavenegar, notifyAdminNewRequest, sendCustomerConfirmation };
