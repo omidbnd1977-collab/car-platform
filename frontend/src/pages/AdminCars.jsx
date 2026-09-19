@@ -437,11 +437,13 @@ export default function AdminCars() {
         setKeyError("");
 
         try {
-            // رمز را قبل از ذخیره‌کردن تست می‌کنیم تا با کلید غلط
-            // کاربر بعد از «ثبت خودرو» غافلگیر نشود.
+            // اول رمز را ذخیره کن تا verify با همین رمز جدید چک کند
+            setAdminKey(clean);
             const checked = await verifyAdminKey(API_BASE);
 
             if (!checked.ok) {
+                // اگر اشتباه بود پاک کن
+                clearAdminKey();
                 setKeyError(
                     checked.reason === "network"
                         ? "سرور پاسخ نداد؛ دوباره امتحان کن."
@@ -451,7 +453,6 @@ export default function AdminCars() {
                 return;
             }
 
-            setAdminKey(clean);
             setKeyDraft("");
             setGuard((prev) => ({ ...prev, enabled: true, hasKey: true }));
             setKeyPrompt(false);
