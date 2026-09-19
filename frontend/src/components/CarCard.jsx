@@ -170,48 +170,7 @@ function CarCard({
                     }}
                 />
 
-                {/* YEAR - طلایی شامپاینی */}
-                {car?.year && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            top: "12px",
-                            left: "12px",
-                            background: "linear-gradient(135deg, #d4af37, #a9823f)",
-                            color: "#111",
-                            padding: "5px 12px",
-                            borderRadius: "999px",
-                            fontSize: "11px",
-                            fontWeight: "900",
-                            letterSpacing: "0.8px",
-                            boxShadow: "0 4px 12px rgba(212,175,55,0.35)",
-                            border: "1px solid rgba(255,255,255,0.25)",
-                        }}
-                    >
-                        {car.year}
-                    </div>
-                )}
-
-                {/* PREMIUM */}
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "12px",
-                        right: "12px",
-                        background: "rgba(0,0,0,0.72)",
-                        color: "#d4af37",
-                        padding: "4px 10px",
-                        borderRadius: "999px",
-                        fontSize: "8px",
-                        fontWeight: "900",
-                        letterSpacing: "1.8px",
-                        backdropFilter: "blur(8px)",
-                        WebkitBackdropFilter: "blur(8px)",
-                        border: "1px solid rgba(212,175,55,0.28)",
-                    }}
-                >
-                    PREMIUM VEHICLE
-                </div>
+                {/* YEAR و PREMIUM حذف شد - سال میره تو عنوان */}
             </div>
 
             {/* CONTENT - طلایی شامپاینی و مشکی */}
@@ -253,7 +212,7 @@ function CarCard({
                         minHeight: "36px",
                     }}
                 >
-                    {brand} <span style={{ color: "#d4af37" }}>/</span> {model}
+                    {brand} <span style={{ color: "#d4af37" }}>/</span> {model}{car?.year ? <><span style={{ color: "#d4af37" }}> / </span>{car.year}</> : null}
                 </h2>
 
                 <div
