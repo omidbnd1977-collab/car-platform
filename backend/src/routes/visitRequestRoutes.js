@@ -12,6 +12,8 @@ router.post("/", visitController.createVisitRequest);
 // ------------------------------------------------------------
 // ادمین - لیست و مدیریت
 // ------------------------------------------------------------
+router.get("/export/csv", adminGuard, visitController.exportVisitRequestsCsv);
+router.post("/bulk-sms", adminGuard, visitController.bulkSmsToConsented);
 router.get("/", adminGuard, visitController.getVisitRequests);
 router.get("/:id", adminGuard, visitController.getVisitRequestById);
 router.patch("/:id/status", adminGuard, visitController.updateVisitRequestStatus);

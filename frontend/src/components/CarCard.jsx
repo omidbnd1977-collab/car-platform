@@ -132,9 +132,10 @@ function CarCard({
                 style={{
                     position: "relative",
                     width: "100%",
-                    height: "195px",
+                    height: "235px",
                     background: "#0a0a0a",
                     overflow: "hidden",
+                    display: "block",
                 }}
             >
                 <SafeImage
@@ -144,6 +145,7 @@ function CarCard({
                     fit="cover"
                     title="عکس در دسترس نیست"
                     loading="lazy"
+                    style={{ objectFit: "cover", objectPosition: "center center", width: "100%", height: "100%" }}
                 />
 
                 {/* شاین طلایی */}
@@ -170,48 +172,7 @@ function CarCard({
                     }}
                 />
 
-                {/* YEAR - طلایی شامپاینی */}
-                {car?.year && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            top: "12px",
-                            left: "12px",
-                            background: "linear-gradient(135deg, #d4af37, #a9823f)",
-                            color: "#111",
-                            padding: "5px 12px",
-                            borderRadius: "999px",
-                            fontSize: "11px",
-                            fontWeight: "900",
-                            letterSpacing: "0.8px",
-                            boxShadow: "0 4px 12px rgba(212,175,55,0.35)",
-                            border: "1px solid rgba(255,255,255,0.25)",
-                        }}
-                    >
-                        {car.year}
-                    </div>
-                )}
-
-                {/* PREMIUM */}
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "12px",
-                        right: "12px",
-                        background: "rgba(0,0,0,0.72)",
-                        color: "#d4af37",
-                        padding: "4px 10px",
-                        borderRadius: "999px",
-                        fontSize: "8px",
-                        fontWeight: "900",
-                        letterSpacing: "1.8px",
-                        backdropFilter: "blur(8px)",
-                        WebkitBackdropFilter: "blur(8px)",
-                        border: "1px solid rgba(212,175,55,0.28)",
-                    }}
-                >
-                    PREMIUM VEHICLE
-                </div>
+                {/* YEAR و PREMIUM حذف شد - سال میره تو عنوان */}
             </div>
 
             {/* CONTENT - طلایی شامپاینی و مشکی */}
@@ -226,10 +187,12 @@ function CarCard({
                 <div
                     style={{
                         color: "#8a7d5e",
-                        fontSize: "8px",
+                        fontSize: "7px",
                         fontWeight: "900",
                         letterSpacing: "2.2px",
-                        marginBottom: "8px",
+                        marginBottom: "2px",
+                        lineHeight: 1,
+                        textAlign: "center",
                     }}
                 >
                     LUXURY EDITION
@@ -237,10 +200,10 @@ function CarCard({
 
                 <h2
                     style={{
-                        margin: "0 0 12px",
+                        margin: "0 0 4px",
                         textAlign: "center",
-                        fontSize: "19px",
-                        lineHeight: 1.25,
+                        fontSize: "16px",
+                        lineHeight: 1.1,
                         color: "#f5e6c8",
                         fontWeight: "800",
                         fontFamily: "'Playfair Display', Tahoma, serif",
@@ -248,69 +211,62 @@ function CarCard({
                         WebkitLineClamp: 2,
                         WebkitBoxOrient: "vertical",
                         overflow: "hidden",
-                        minHeight: "48px",
+                        minHeight: "36px",
                     }}
                 >
-                    {brand} <span style={{ color: "#d4af37" }}>/</span> {model}
+                    {brand} <span style={{ color: "#d4af37" }}>/</span> {model}{car?.year ? <><span style={{ color: "#d4af37" }}> / </span>{car.year}</> : null}
                 </h2>
 
                 <div
                     style={{
-                        marginBottom: "14px",
+                        marginBottom: "6px",
                         textAlign: "center",
-                        padding: "12px 0 14px",
+                        padding: "6px 0 8px",
                         borderTop: "1px solid rgba(212,175,55,0.14)",
                         borderBottom: "1px solid rgba(212,175,55,0.10)",
                         background: "radial-gradient(ellipse at center, rgba(212,175,55,0.06), transparent 70%)",
+                        lineHeight: 1.1,
                     }}
                 >
                     <div
                         style={{
-                            fontSize: "8px",
+                            fontSize: "7px",
                             color: "#8a7d5e",
                             letterSpacing: "2px",
-                            marginBottom: "4px",
+                            marginBottom: "2px",
                             fontWeight: "800",
+                            lineHeight: 1,
+                            textAlign: "center",
                         }}
                     >
                         PRICE
                     </div>
                     <div
                         style={{
-                            fontSize: "22px",
+                            fontSize: "19px",
                             fontWeight: "900",
                             color: "#f5e6a6",
                             letterSpacing: "-0.3px",
                             textShadow: "0 2px 12px rgba(212,175,55,0.35)",
+                            lineHeight: 1.1,
+                            textAlign: "center",
                         }}
                     >
                         {price} {dealerConfig.currency}
                     </div>
                     <div
                         style={{
-                            marginTop: "6px",
+                            marginTop: "3px",
                             color: "#6d6655",
-                            fontSize: "8.5px",
+                            fontSize: "7px",
                             letterSpacing: "0.3px",
-                            lineHeight: 1.5,
+                            lineHeight: 1.2,
+                            textAlign: "center",
                         }}
                     >
                         قیمت شامل هزینه لندیکرافت از مبدأ می‌باشد
                     </div>
                 </div>
-
-                {city ? (
-                    <div
-                        style={{
-                            textAlign: "center",
-                            color: "#9a8d72",
-                            fontSize: "12px",
-                            marginBottom: "14px",
-                        }}
-                    >
-                        📍 {city}
-                    </div>
-                ) : null}
 
                 {/* دو دکمه هم‌قد - 3 تا کارت در هر ردیف حفظ میشه چون گرید هوم 3 تاییه */}
                 <div
@@ -354,7 +310,7 @@ function CarCard({
                             e.currentTarget.style.borderColor = "rgba(212,175,55,0.32)";
                         }}
                     >
-                        VIEW DETAILS
+                        جزئیات خودرو
                     </button>
 
                     <button
