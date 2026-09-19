@@ -1101,6 +1101,183 @@ error:error.message
 
 };
 
+// =================================================
+// GET SOLD CARS - خودروهای فروخته شده
+// =================================================
+exports.getSoldCars = async(req,res)=>{
+
+try{
+try{ await db.query("ALTER TABLE cars ADD COLUMN IF NOT EXISTS sold_at TIMESTAMPTZ"); }catch(e){}
+
+const result =
+await db.query(
+
+`
+
+SELECT
+
+cars.id,
+
+cars.primary_image_id,
+
+cars.year,
+
+cars.country,
+
+cars.price_aed,
+
+cars.shipping_cost,
+
+cars.customs_cost,
+
+cars.description,
+
+cars.status,
+
+cars.sold_at,
+cars.created_at,
+
+car_brands.name AS brand,
+
+
+car_models.name AS model,
+
+
+dealerships.name AS dealership_name,
+
+
+dealerships.city,
+
+
+
+COALESCE(
+
+    json_agg(
+
+        json_build_object(
+
+            'id',
+            car_images.id,
+
+            'image_url',
+            car_images.image_url,
+
+            'source_name',
+            car_images.source_name,
+
+            'view_type',
+            car_images.view_type,
+
+            'sort_order',
+            car_images.sort_order,
+
+            'is_primary',
+            (
+                cars.primary_image_id = car_images.id
+            )
+
+        )
+
+        ORDER BY car_images.sort_order ASC
+
+    )
+
+    FILTER(
+        WHERE car_images.id IS NOT NULL
+    ),
+
+    '[]'
+
+)
+
+AS images
+
+
+
+FROM cars
+
+
+
+LEFT JOIN car_brands
+
+ON cars.brand_id = car_brands.id
+
+
+
+LEFT JOIN car_models
+
+ON cars.model_id = car_models.id
+
+
+
+LEFT JOIN dealerships
+
+ON cars.dealership_id = dealerships.id
+
+
+
+LEFT JOIN car_images
+
+ON cars.id = car_images.car_id
+
+AND car_images.approval_status='APPROVED'
+
+
+
+WHERE cars.status='SOLD'
+
+
+
+GROUP BY
+
+cars.id,
+
+car_brands.name,
+
+car_models.name,
+
+dealerships.name,
+
+dealerships.city
+
+
+
+ORDER BY COALESCE(cars.sold_at, cars.created_at) DESC
+
+
+`
+
+);
+
+
+
+res.json({
+
+cars:result.rows
+
+});
+
+
+}
+
+
+catch(error){
+
+
+res.status(500).json({
+
+error:error.message
+
+});
+
+
+}
+
+
+};
+
+
+
 
 
 
@@ -1281,6 +1458,38 @@ error:error.message
 
 };
 
+
+// =================================================
+// GET ALL CARS ADMIN - برای آمار (همه وضعیت‌ها)
+// =================================================
+exports.getAllCarsAdmin = async(req,res)=>{
+try{
+try{ await db.query("ALTER TABLE cars ADD COLUMN IF NOT EXISTS sold_at TIMESTAMPTZ"); }catch(e){}
+const result = await db.query(`
+SELECT
+cars.id,
+cars.status,
+cars.price_aed,
+cars.created_at,
+cars.sold_at,
+car_brands.name AS brand,
+car_models.name AS model
+FROM cars
+LEFT JOIN car_brands ON cars.brand_id = car_brands.id
+LEFT JOIN car_models ON cars.model_id = car_models.id
+ORDER BY cars.created_at DESC
+`);
+const rows = result.rows;
+const total = rows.length;
+const active = rows.filter(r=>String(r.status).toUpperCase()==='ACTIVE').length;
+const sold = rows.filter(r=>String(r.status).toUpperCase()==='SOLD').length;
+const hidden = rows.filter(r=>String(r.status).toUpperCase()==='HIDDEN').length;
+res.json({ cars: rows, stats: { total, active, sold, hidden } });
+}catch(error){
+res.status(500).json({ error:error.message });
+}
+};
+
 // =================================================
 // REORDER IMAGES  <-- این قسمت جدید است
 // =================================================
@@ -1360,6 +1569,7 @@ error:error.message
 const UPDATABLE_STATUSES = [
     "ACTIVE",
     "HIDDEN",
+    "SOLD",
     "PENDING",
     "APPROVED",
     "REJECTED",
@@ -1388,6 +1598,7 @@ try {
     const carId = req.params.id;
     const body = req.body || {};
 
+    try{ await client.query("ALTER TABLE cars ADD COLUMN IF NOT EXISTS sold_at TIMESTAMPTZ"); }catch(e){}
     await client.query("BEGIN");
 
     const current = await client.query(
@@ -1491,7 +1702,8 @@ try {
                 WHEN $11::int = -1 THEN NULL
                 ELSE COALESCE($11, dealership_id)
             END,
-            status = COALESCE($12, status)
+            status = COALESCE($12, status),
+            sold_at = CASE WHEN $12 = 'SOLD' THEN COALESCE(sold_at, NOW()) WHEN $12 = 'ACTIVE' THEN NULL ELSE sold_at END
         WHERE id = $13
         RETURNING *
         `,

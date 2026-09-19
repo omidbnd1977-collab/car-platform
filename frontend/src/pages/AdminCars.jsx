@@ -76,6 +76,7 @@ import AddCar from "./AddCar";
 import { getImageUrl } from "../utils/imageUrl";
 import CarDetails from "./CarDetails";
 import VisitRequests from "./VisitRequests";
+import AdminStats from "../components/admin/AdminStats";
 import dealerConfig, { tenantSlug } from "../config/dealerConfig";
 import { API_BASE, apiUrl } from "../utils/apiBase";
 import {
@@ -232,6 +233,7 @@ export default function AdminCars() {
     // حذف خودروی اشتباهی
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
+    const [showStats, setShowStats] = useState(false);
 
     // وضعیت محافظ ادمین (ADMIN_API_KEY سمت سرور)
     const [guard, setGuard] = useState({ checked: false, enabled: false, hasKey: false });
@@ -923,7 +925,7 @@ export default function AdminCars() {
                         </p>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                         <button
                             type="button"
                             onClick={loadCars}
@@ -938,6 +940,27 @@ export default function AdminCars() {
                             }}
                         >
                             ↻ تازه‌سازی
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowStats(true)}
+                            style={{
+                                padding: "12px 20px",
+                                border: "1px solid #d4af37",
+                                borderRadius: "8px",
+                                background: "linear-gradient(135deg, #111 0%, #222 100%)",
+                                color: "#d4af37",
+                                cursor: "pointer",
+                                fontWeight: "800",
+                                fontSize: "13px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
+                            }}
+                        >
+                            📊 آمار حرفه‌ای
                         </button>
 
                         <button
@@ -1196,6 +1219,7 @@ export default function AdminCars() {
                         );
                     })}
                 </div>
+                <AdminStats open={showStats} onClose={() => setShowStats(false)} />
             </div>
         </div>
     );
