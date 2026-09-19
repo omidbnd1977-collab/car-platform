@@ -61,7 +61,7 @@ export default function AdminStats({ open, onClose }) {
 
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: "16px", fontFamily: "Tahoma, Arial, sans-serif", direction: "rtl" }}>
-            <div style={{ background: "#fff", borderRadius: "20px", width: "100%", maxWidth: "760px", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
+            <div style={{ background: "#fff", borderRadius: "20px", width: "95vw", maxWidth: "1100px", maxHeight: "95vh", height: "95vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
                 {/* Header */}
                 <div style={{ padding: "22px 24px", background: "linear-gradient(135deg, #111 0%, #222 100%)", color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
@@ -72,7 +72,7 @@ export default function AdminStats({ open, onClose }) {
                     <button onClick={onClose} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", padding: "8px 14px", borderRadius: "10px", cursor: "pointer", fontWeight: 800 }}>✕ بستن</button>
                 </div>
 
-                <div style={{ overflowY: "auto", padding: "22px", flex: 1 }}>
+                <div style={{ overflowY: "auto", padding: "24px", flex: 1, background: "#f8f8f8" }}>
                     {loading ? (
                         <div style={{ padding: "40px", textAlign: "center", color: "#888" }}>در حال بارگذاری آمار...</div>
                     ) : error ? (
@@ -109,7 +109,7 @@ export default function AdminStats({ open, onClose }) {
                                 </div>
 
                                 {/* Chart */}
-                                <div style={{ display: "flex", alignItems: "end", gap: "10px", height: "200px", padding: "0 8px 8px", borderBottom: "1px solid #eee", borderLeft: "1px solid #f0f0f0" }}>
+                                <div style={{ display: "flex", alignItems: "end", gap: "12px", height: "280px", padding: "0 8px 8px", borderBottom: "1px solid #eee", borderLeft: "1px solid #f0f0f0" }}>
                                     {bars.map((b) => {
                                         const h = Math.max(12, (b.value / maxVal) * 160);
                                         return (
