@@ -132,9 +132,10 @@ function CarCard({
                 style={{
                     position: "relative",
                     width: "100%",
-                    height: "215px",
+                    height: "235px",
                     background: "#0a0a0a",
                     overflow: "hidden",
+                    display: "block",
                 }}
             >
                 <SafeImage
@@ -144,6 +145,7 @@ function CarCard({
                     fit="cover"
                     title="عکس در دسترس نیست"
                     loading="lazy"
+                    style={{ objectFit: "cover", objectPosition: "center center", width: "100%", height: "100%" }}
                 />
 
                 {/* شاین طلایی */}
