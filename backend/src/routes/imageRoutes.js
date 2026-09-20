@@ -1,55 +1,21 @@
 const express = require("express");
-
 const router = express.Router();
+const imageController = require("../controllers/imageController");
+const adminGuard = require("../middleware/adminGuard");
 
-const imageController =
-require("../controllers/imageController");
+// تصاویر یک خودرو - عمومی (برای نمایش در سایت)
+router.get("/car/:carId", imageController.getCarImages);
 
+// تایید - فقط ادمین
+router.put("/:id/approve", adminGuard, imageController.approveImage);
 
+// رد - فقط ادمین
+router.put("/:id/reject", adminGuard, imageController.rejectImage);
 
-// تصاویر یک خودرو
+// حذف - فقط ادمین
+router.delete("/:id", adminGuard, imageController.deleteImage);
 
-router.get(
-"/car/:carId",
-imageController.getCarImages
-);
-
-
-
-// تایید
-
-router.put(
-"/:id/approve",
-imageController.approveImage
-);
-
-
-
-// رد
-
-router.put(
-"/:id/reject",
-imageController.rejectImage
-);
-
-
-
-// حذف
-
-router.delete(
-"/:id",
-imageController.deleteImage
-);
-
-
-
-// عکس اصلی
-
-router.put(
-"/:id/main",
-imageController.setMainImage
-);
-
-
+// عکس اصلی - فقط ادمین
+router.put("/:id/main", adminGuard, imageController.setMainImage);
 
 module.exports = router;
