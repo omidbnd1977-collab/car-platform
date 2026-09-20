@@ -57,14 +57,25 @@ exports.getVisitRequests=async(req,res)=>{
     try{
         await ensureTable();
         const {status,search,limit=100,offset=0}=req.query;
-        let query=`SELECT vr.* FROM visit_requests vr WHERE 1=1`; const values=[]; let idx=1;
-        if(status&&ALLOWED_STATUSES.includes(status)){query+=` AND vr.status = $${idx}`; values.push(status); idx++;}
-        if(search){const s=`%${String(search).trim()}%`; query+=` AND (vr.first_name ILIKE $${idx} OR vr.last_name ILIKE $${idx} OR vr.mobile ILIKE $${idx} OR vr.car_title ILIKE $${idx})`; values.push(s); idx++;}
+        let query=`SELECT vr.* FROM visit_requests vr WHERE 1=1`;
+        let countQuery=`SELECT COUNT(*)::int AS total FROM visit_requests vr WHERE 1=1`;
+        const values=[]; const countValues=[]; let idx=1; let countIdx=1;
+        if(status&&ALLOWED_STATUSES.includes(status)){
+            query+=` AND vr.status = $${idx}`; values.push(status); idx++;
+            countQuery+=` AND vr.status = $${countIdx}`; countValues.push(status); countIdx++;
+        }
+        if(search){
+            const s=`%${String(search).trim()}%`;
+            query+=` AND (vr.first_name ILIKE $${idx} OR vr.last_name ILIKE $${idx} OR vr.mobile ILIKE $${idx} OR vr.car_title ILIKE $${idx})`; values.push(s); idx++;
+            countQuery+=` AND (vr.first_name ILIKE $${countIdx} OR vr.last_name ILIKE $${countIdx} OR vr.mobile ILIKE $${countIdx} OR vr.car_title ILIKE $${countIdx})`; countValues.push(s); countIdx++;
+        }
         query+=` ORDER BY vr.created_at DESC LIMIT $${idx} OFFSET $${idx+1}`; values.push(Math.min(Number(limit)||100,200)); values.push(Math.max(Number(offset)||0,0));
         const result=await db.query(query,values);
-        const countResult=await db.query(`SELECT COUNT(*)::int AS total FROM visit_requests`);
+        const countResult=await db.query(countQuery,countValues);
         const statsResult=await db.query(`SELECT status, COUNT(*)::int AS count FROM visit_requests GROUP BY status`);
-        return res.json({requests:result.rows,total:countResult.rows[0].total,stats:statsResult.rows});
+        // total فیلترشده + totalAll برای نمایش کل
+        const totalAllResult=await db.query(`SELECT COUNT(*)::int AS total FROM visit_requests`);
+        return res.json({requests:result.rows,total:countResult.rows[0].total,totalAll:totalAllResult.rows[0].total,stats:statsResult.rows, filtered: Boolean(status||search)});
     }catch(e){return res.status(500).json({error:e.message});}
 };
 exports.updateVisitRequestStatus=async(req,res)=>{
