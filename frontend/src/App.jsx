@@ -1,61 +1,50 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import AdminCars from "./pages/AdminCars";
 import SoldCars from "./pages/SoldCars";
 import QRPrintSheet from "./components/QRPrintSheet";
 import "./App.css";
 
-function getRoute() {
-    const path = window.location.pathname.replace(/\/+$/, "") || "/";
-    const search = window.location.search || "";
-    const hash = window.location.hash || "";
-
-    const isQR =
-        path === "/qr" ||
-        path === "/print-qr" ||
-        path.startsWith("/qr/") ||
-        path.startsWith("/print-qr/") ||
-        search.includes("qr") ||
-        search.includes("print") ||
-        hash.includes("qr");
-
-    const isAdmin =
-        !isQR &&
-        (path === "/admin" ||
-            path.startsWith("/admin/") ||
-            search.includes("admin") ||
-            hash.includes("admin"));
-
-    const isSold =
-        !isQR &&
-        !isAdmin &&
-        (path === "/sold" ||
-            path.startsWith("/sold/") ||
-            search.includes("sold") ||
-            hash.includes("sold"));
-
-    if (isQR) return "qr";
-    if (isAdmin) return "admin";
-    if (isSold) return "sold";
-    return "home";
+function App() {
+    return (
+        <BrowserRouter>
+            <Routes>
+                {/* خانه */}
+                <Route path="/" element={<Home />} />
+                
+                {/* فروخته شده - حرفه‌ای */}
+                <Route path="/sold" element={<SoldCars />} />
+                
+                {/* ادمین */}
+                <Route path="/admin" element={<AdminCars />} />
+                
+                {/* QR چاپ */}
+                <Route path="/qr" element={<QRPrintSheet />} />
+                <Route path="/print-qr" element={<QRPrintSheet />} />
+                <Route path="/qr/:id" element={<QRPrintSheet />} />
+                <Route path="/print-qr/:id" element={<QRPrintSheet />} />
+                
+                {/* fallback - برای ?admin و #admin و ?sold قدیمی - به مسیر درست ریدایرکت */}
+                <Route path="*" element={<LegacyRouteHandler />} />
+            </Routes>
+        </BrowserRouter>
+    );
 }
 
-function App() {
-    const [route, setRoute] = useState(() => getRoute());
+// برای سازگاری با لینک‌های قدیمی که با ?admin, #admin, ?sold کار می‌کردند
+function LegacyRouteHandler() {
+    const search = window.location.search || "";
+    const hash = window.location.hash || "";
+    const path = window.location.pathname || "";
 
-    useEffect(() => {
-        const onChange = () => setRoute(getRoute());
-        window.addEventListener("hashchange", onChange);
-        window.addEventListener("popstate", onChange);
-        return () => {
-            window.removeEventListener("hashchange", onChange);
-            window.removeEventListener("popstate", onChange);
-        };
-    }, []);
+    const isQR = path.startsWith("/qr") || path.startsWith("/print-qr") || search.includes("qr") || search.includes("print") || hash.includes("qr");
+    const isAdmin = search.includes("admin") || hash.includes("admin") || path.startsWith("/admin");
+    const isSold = search.includes("sold") || hash.includes("sold") || path.startsWith("/sold");
 
-    if (route === "qr") return <QRPrintSheet />;
-    if (route === "admin") return <AdminCars />;
-    if (route === "sold") return <SoldCars />;
+    if (isQR) return <QRPrintSheet />;
+    if (isAdmin) return <AdminCars />;
+    if (isSold) return <SoldCars />;
     return <Home />;
 }
 
