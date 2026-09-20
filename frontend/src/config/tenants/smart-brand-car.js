@@ -1,3 +1,5 @@
+// مشتری: SMART BRAND CAR - قشم
+// فرم فروش پنل - ساخته شده خودکار
 export const smartBrandCarTenant = {
     tenant: "smart-brand-car",
     name: "SMART BRAND CAR",
@@ -15,6 +17,12 @@ export const smartBrandCarTenant = {
     primaryColor: "#d4af37",
     secondaryColor: "#050505",
     currency: "AED",
-    features: { whatsapp: true, shipping: true, customs: true, financing: false, testDrive: false },
+    features: {
+        whatsapp: true,
+        shipping: true,
+        customs: true,
+        financing: false,
+        testDrive: false,
+    },
 };
 export default smartBrandCarTenant;
