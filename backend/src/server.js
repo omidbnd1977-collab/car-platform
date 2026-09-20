@@ -1,4 +1,5 @@
 const catalogRoutes = require("./routes/catalogRoutes");
+const tenantRoutes = require("./routes/tenantRoutes");
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
@@ -84,6 +85,7 @@ app.use(
 "/api/catalog",
 catalogRoutes
 );
+app.use("/api/tenants", tenantRoutes);
 // Test
 app.get("/", (req, res) => {
     res.json({

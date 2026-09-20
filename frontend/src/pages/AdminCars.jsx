@@ -77,6 +77,7 @@ import { getImageUrl } from "../utils/imageUrl";
 import CarDetails from "./CarDetails";
 import VisitRequests from "./VisitRequests";
 import AdminStats from "../components/admin/AdminStats";
+import AdminTenants from "../components/admin/AdminTenants";
 import dealerConfig, { tenantSlug } from "../config/dealerConfig";
 import { API_BASE, apiUrl } from "../utils/apiBase";
 import {
@@ -234,6 +235,7 @@ export default function AdminCars() {
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
     const [showStats, setShowStats] = useState(false);
+    const [showTenants, setShowTenants] = useState(false);
 
     // وضعیت محافظ ادمین (ADMIN_API_KEY سمت سرور)
     const [guard, setGuard] = useState({ checked: false, enabled: false, hasKey: false });
@@ -945,6 +947,27 @@ export default function AdminCars() {
 
                         <button
                             type="button"
+                            onClick={() => setShowTenants(true)}
+                            style={{
+                                padding: "12px 20px",
+                                border: "1px solid #d4af37",
+                                borderRadius: "8px",
+                                background: "linear-gradient(135deg, #d4af37 0%, #b8962e 100%)",
+                                color: "#000",
+                                cursor: "pointer",
+                                fontWeight: "800",
+                                fontSize: "13px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                boxShadow: "0 4px 14px rgba(212,175,55,0.3)",
+                            }}
+                        >
+                            🏢 شاخه‌ها
+                        </button>
+
+                        <button
+                            type="button"
                             onClick={() => setShowStats(true)}
                             style={{
                                 padding: "12px 20px",
@@ -1221,6 +1244,7 @@ export default function AdminCars() {
                     })}
                 </div>
                 <AdminStats open={showStats} onClose={() => setShowStats(false)} />
+                {showTenants && <AdminTenants onClose={() => setShowTenants(false)} />}
             </div>
         </div>
     );
