@@ -1,0 +1,21 @@
+node_modules/
+.env
+.env.*
+!.env.example
+dist/
+uploads/
+*.log
+
+_backups/
+*.backup.jsx
+
+# Junk / test files - نباید کامیت شوند
+backend/test-car.json
+backend/add-image.json
+backend/reorder.json
+backend/test-db.js
+frontend/admincars.txt
+backend/services/
+backend/src/components/
+*.patch
+admin-guard-fix.patch
