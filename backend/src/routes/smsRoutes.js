@@ -3,12 +3,30 @@ const adminGuard = require("../middleware/adminGuard");
 const { smsLimiter } = require("../middleware/rateLimit");
 const router = express.Router();
 
+// helper برای ساخت URL داینامیک - بدون hard-code دامنه
+function getBaseUrl(req) {
+    // اولویت: ENV های عمومی
+    const envUrl = String(process.env.PUBLIC_API_URL || process.env.BASE_URL || process.env.API_URL || "").trim();
+    if (envUrl) {
+        return envUrl.replace(/\/+$/, "");
+    }
+    // از خود request بساز - multi-tenant friendly
+    try {
+        const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+        const host = req.get("host") || req.headers.host || "";
+        if (host) {
+            return `${protocol}://${host}/api`.replace(/\/+$/, "");
+        }
+    } catch {}
+    // fallback - دیگر hard-code car-platform-db نیست
+    return "/api";
+}
+
 // ------------------------------------------------------------
 // وب‌هوک کاوه‌نگار - دریافت وضعیت ارسال پیامک
 // ------------------------------------------------------------
 // تو پنل کاوه‌نگار -> تنظیمات -> وب‌هوک
-// آدرس را بگذار:
-//   https://car-platform-db.onrender.com/api/sms/webhook
+// آدرس را بگذار: {BASE_URL}/sms/webhook (داینامیک)
 // متد: POST
 // ------------------------------------------------------------
 
@@ -16,7 +34,6 @@ router.post("/webhook", (req, res) => {
     try {
         console.log("=== KAVENEGAR WEBHOOK RECEIVED ===");
         console.log("Time:", new Date().toISOString());
-        // لاگ امن - بدون لو دادن کل هدر
         const safeBody = req.body || {};
         console.log("Body keys:", Object.keys(safeBody));
         console.log("Body:", JSON.stringify(safeBody).slice(0, 2000));
@@ -38,26 +55,26 @@ router.post("/webhook", (req, res) => {
         });
     } catch (e) {
         console.error("SMS WEBHOOK ERROR:", e.message, e.stack);
-        // حتی در خطا 200 بده تا کاوه‌نگار retry بی‌نهایت نکند
         return res.status(200).json({ ok: true, received: true, error: e.message });
     }
 });
 
 // تست وب‌هوک - GET برای اینکه ببینی کار می‌کند
 router.get("/webhook", (req, res) => {
+    const baseUrl = getBaseUrl(req);
     return res.json({
         ok: true,
-        message: "Kavenegar webhook endpoint is active. Use POST https://car-platform-db.onrender.com/api/sms/webhook",
+        message: `Kavenegar webhook endpoint is active. Use POST ${baseUrl}/sms/webhook`,
         usage: {
             method: "POST",
-            url: "https://car-platform-db.onrender.com/api/sms/webhook",
-            kavenegar_panel: "تنظیمات -> وب‌هوک -> همین آدرس را بگذار"
+            url: `${baseUrl}/sms/webhook`,
+            kavenegar_panel: "تنظیمات -> وب‌هوک -> همین آدرس را بگذار",
+            note: "این URL داینامیک است - بر اساس دامنه فعلی ساخته می‌شود. برای hard-code می‌توانی PUBLIC_API_URL را در ENV ست کنی."
         }
     });
 });
 
 // تست ارسال پیامک به مدیر - GET /api/sms/test
-// برای اینکه بفهمی چرا پیامک نمی‌رود
 router.get("/test", adminGuard, smsLimiter, async (req, res) => {
     try {
         const smsService = require("../services/smsService");
@@ -76,7 +93,6 @@ router.get("/test", adminGuard, smsLimiter, async (req, res) => {
         console.log(`SMS TEST: sending to ${testMobile} template=${template || 'none'} sender=${conf.sender || 'none'}`);
 
         let lookupError = null;
-        // اگر پترن داری، اول Lookup را امتحان کن (نیازی به sender ندارد)
         if (template) {
             try {
                 const r = await smsService.lookupViaKavenegar({
@@ -100,7 +116,6 @@ router.get("/test", adminGuard, smsLimiter, async (req, res) => {
             }
         }
 
-        // Send معمولی
         try {
             const message = `تست پیامک از سایت ${new Date().toLocaleString("fa-IR")}`;
             const result = await smsService.sendViaKavenegar({
@@ -119,7 +134,7 @@ router.get("/test", adminGuard, smsLimiter, async (req, res) => {
             const errMsg = String(sendErr.message || "");
             let help = "";
             if (errMsg.includes("412") || errMsg.includes("ارسال کننده نامعتبر")) {
-                help = "فرستنده نامعتبر است. یا SMS_SENDER را از پنل کاوه‌نگار (شماره‌های من) دقیق کپی کن، یا SMS_SENDER را حذف کن و یک الگو (Lookup) بساز و KAVENEGAR_TEMPLATE را ست کن. بدون فرستنده معتبر، متد Send کار نمی‌کند.";
+                help = "فرستنده نامعتبر است. یا SMS_SENDER را از پنل کاوه‌نگار دقیق کپی کن، یا SMS_SENDER را حذف کن و KAVENEGAR_TEMPLATE را ست کن.";
             }
             return res.status(500).json({
                 ok: false,
@@ -127,7 +142,7 @@ router.get("/test", adminGuard, smsLimiter, async (req, res) => {
                 lookupError,
                 help,
                 config: conf,
-                suggestion: "اگر template ست کردی ولی lookupError داری، یعنی الگو هنوز تایید نشده یا اسمش اشتباهه. پنل -> الگوها -> وضعیت را چک کن باید 'تایید شده' باشد."
+                suggestion: "اگر template ست کردی ولی lookupError داری، الگو باید 'تایید شده' باشد."
             });
         }
 
@@ -141,7 +156,7 @@ router.get("/test", adminGuard, smsLimiter, async (req, res) => {
     }
 });
 
-// تست مستقیم درخواست بازدید - بدون ثبت در DB - POST /api/sms/test-visit
+// تست مستقیم درخواست بازدید
 router.post("/test-visit", adminGuard, smsLimiter, async (req, res) => {
     try {
         const smsService = require("../services/smsService");
@@ -178,6 +193,7 @@ router.get("/status", adminGuard, (req, res) => {
     try {
         const smsService = require("../services/smsService");
         const conf = smsService.getConfig();
+        const baseUrl = getBaseUrl(req);
         return res.json({
             enabled: conf.enabled,
             hasApiKey: Boolean(conf.apiKey),
@@ -186,9 +202,10 @@ router.get("/status", adminGuard, (req, res) => {
             template: conf.template || null,
             adminTemplate: conf.adminTemplate || null,
             provider: "kavenegar",
-            webhook: "https://car-platform-db.onrender.com/api/sms/webhook",
-            testUrl: "https://car-platform-db.onrender.com/api/sms/test",
-            testVisitUrl: "https://car-platform-db.onrender.com/api/sms/test-visit"
+            webhook: `${baseUrl}/sms/webhook`,
+            testUrl: `${baseUrl}/sms/test`,
+            testVisitUrl: `${baseUrl}/sms/test-visit`,
+            baseUrlSource: process.env.PUBLIC_API_URL ? "env:PUBLIC_API_URL" : process.env.BASE_URL ? "env:BASE_URL" : "dynamic:request"
         });
     } catch (e) {
         return res.status(500).json({ error: e.message });
