@@ -1,4 +1,6 @@
 const express = require("express");
+const adminGuard = require("../middleware/adminGuard");
+const { smsLimiter } = require("../middleware/rateLimit");
 const router = express.Router();
 
 // ------------------------------------------------------------
@@ -56,7 +58,7 @@ router.get("/webhook", (req, res) => {
 
 // تست ارسال پیامک به مدیر - GET /api/sms/test
 // برای اینکه بفهمی چرا پیامک نمی‌رود
-router.get("/test", async (req, res) => {
+router.get("/test", adminGuard, smsLimiter, async (req, res) => {
     try {
         const smsService = require("../services/smsService");
         const conf = smsService.getConfig();
@@ -140,7 +142,7 @@ router.get("/test", async (req, res) => {
 });
 
 // تست مستقیم درخواست بازدید - بدون ثبت در DB - POST /api/sms/test-visit
-router.post("/test-visit", async (req, res) => {
+router.post("/test-visit", adminGuard, smsLimiter, async (req, res) => {
     try {
         const smsService = require("../services/smsService");
         const conf = smsService.getConfig();
@@ -172,7 +174,7 @@ router.post("/test-visit", async (req, res) => {
 });
 
 // وضعیت سرویس پیامک
-router.get("/status", (req, res) => {
+router.get("/status", adminGuard, (req, res) => {
     try {
         const smsService = require("../services/smsService");
         const conf = smsService.getConfig();

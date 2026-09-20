@@ -13,11 +13,13 @@ const purchaseRoutes = require("./routes/purchaseRoutes");
 const visitRequestRoutes = require("./routes/visitRequestRoutes");
 const smsRoutes = require("./routes/smsRoutes");
 const multer = require("multer");
+const { globalLimiter } = require("./middleware/rateLimit");
 const { MAX_FILE_SIZE_MB } = require("./middleware/upload");
 const storageService = require("./services/storageService");
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 // ------------------------------------------------------------
 // اگر بدنه‌ی JSON خوانده نشود (مثلاً درخواست بدون Content-Type
 // application/json) اکسپرس req.body را تعریف نمی‌کند و کنترلرها روی
@@ -65,6 +67,9 @@ app.use(
         fallthrough: true,
     })
 );
+// Rate limit سراسری - جلوگیری از سیل درخواست
+app.use("/api", globalLimiter);
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/dealerships", dealershipRoutes);
