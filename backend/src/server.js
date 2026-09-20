@@ -165,13 +165,13 @@ app.listen(PORT,async ()=>{
     console.log(
         `Server running on port ${PORT}`
     );
-    // جدول درخواست بازدید را در شروع سرور بساز تا اولین POST گیر نکند
+    // اجرای مایگریشن‌ها در startup - جایگزین CREATE TABLE IF NOT EXISTS پراکنده
     try {
-        const { ensureTable } = require("./controllers/visitRequestController");
-        await ensureTable();
-        console.log("VISIT_REQUESTS ensured on startup");
+        const { runMigrations } = require("./config/migrate");
+        await runMigrations();
+        console.log("MIGRATIONS ensured on startup");
     } catch (e) {
-        console.error("VISIT_REQUESTS startup ensure failed:", e.message);
+        console.error("MIGRATIONS startup failed:", e.message);
     }
     // وضعیت پیامک کاوه‌نگار
     try {

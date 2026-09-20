@@ -5,7 +5,10 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:watch": "node --test --watch tests/*.test.js",
+    "migrate": "node src/config/migrate.js",
+    "migrate:rollback": "node -e \"require('./src/config/migrate').rollbackLast().then(()=>process.exit(0))\""
   },
   "keywords": [],
   "author": "",

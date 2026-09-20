@@ -1,10 +1,19 @@
 const db = require("../config/database");
 const smsService = require("../services/smsService");
+// Deprecated: جدول حالا با سیستم مایگریشن ساخته می‌شود (src/migrations/001_...)
+// این تابع برای سازگاری قدیمی نگه داشته شده و فقط لاگ می‌دهد
 let tableEnsured = false;
 async function ensureTable() {
     if (tableEnsured) return;
-    await db.query(`CREATE TABLE IF NOT EXISTS visit_requests (id SERIAL PRIMARY KEY, first_name VARCHAR(80) NOT NULL, last_name VARCHAR(80) NOT NULL, mobile VARCHAR(20) NOT NULL, car_id INTEGER, car_brand VARCHAR(120), car_model VARCHAR(120), car_year INTEGER, car_title VARCHAR(250), car_price_aed NUMERIC, status VARCHAR(30) NOT NULL DEFAULT 'جدید', sms_consent BOOLEAN NOT NULL DEFAULT FALSE, sms_consent_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), ip_address VARCHAR(64));`);
-    await db.query(`CREATE INDEX IF NOT EXISTS idx_visit_requests_mobile ON visit_requests(mobile);`);
+    try {
+        const { runMigrations } = require("../config/migrate");
+        await runMigrations();
+    } catch (e) {
+        // fallback قدیمی فقط اگر مایگریشن فیل شد
+        console.warn("ensureTable fallback:", e.message);
+        await db.query(`CREATE TABLE IF NOT EXISTS visit_requests (id SERIAL PRIMARY KEY, first_name VARCHAR(80) NOT NULL, last_name VARCHAR(80) NOT NULL, mobile VARCHAR(20) NOT NULL, car_id INTEGER, car_brand VARCHAR(120), car_model VARCHAR(120), car_year INTEGER, car_title VARCHAR(250), car_price_aed NUMERIC, status VARCHAR(30) NOT NULL DEFAULT 'جدید', sms_consent BOOLEAN NOT NULL DEFAULT FALSE, sms_consent_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), ip_address VARCHAR(64));`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_visit_requests_mobile ON visit_requests(mobile);`);
+    }
     tableEnsured = true;
 }
 function normalizeMobile(input) {
