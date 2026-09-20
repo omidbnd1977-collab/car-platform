@@ -3,32 +3,33 @@ const router = express.Router();
 
 const purchaseController = require("../controllers/purchaseController");
 const authMiddleware = require("../middleware/authMiddleware");
+const adminGuard = require("../middleware/adminGuard");
 
-// ثبت درخواست خرید
+// ثبت درخواست خرید - مشتری لاگین کرده
 router.post(
   "/",
   authMiddleware,
   purchaseController.createRequest
 );
 
-// مشاهده درخواست‌ها
+// مشاهده درخواست‌ها - فقط ادمین (SUPER_ADMIN via JWT یا x-admin-key)
 router.get(
   "/",
-  authMiddleware,
+  adminGuard,
   purchaseController.getRequests
 );
 
-// تایید درخواست خرید
+// تایید درخواست خرید - فقط ادمین
 router.put(
   "/:id/approve",
-  authMiddleware,
+  adminGuard,
   purchaseController.approveRequest
 );
 
-// رد درخواست خرید
+// رد درخواست خرید - فقط ادمین
 router.put(
   "/:id/reject",
-  authMiddleware,
+  adminGuard,
   purchaseController.rejectRequest
 );
 
