@@ -1,0 +1,54 @@
+name: CI - Security & Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-tests:
+    name: Backend Security Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package.json
+      - name: Install backend deps
+        working-directory: backend
+        run: npm install
+      - name: Run security tests
+        working-directory: backend
+        run: npm test
+        env:
+          NODE_ENV: test
+      - name: Check critical security files
+        working-directory: backend
+        run: |
+          grep -q "adminGuard" src/routes/imageRoutes.js || exit 1
+          grep -q "adminGuard" src/routes/purchaseRoutes.js || exit 1
+          test -f src/middleware/rateLimit.js || exit 1
+          grep -q "DB_SSL_REJECT_UNAUTHORIZED" src/config/database.js || exit 1
+          echo "All security checks passed!"
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm install
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: https://car-platform-db.onrender.com/api
