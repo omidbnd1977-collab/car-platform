@@ -185,8 +185,8 @@ function Home() {
             </section>
 
             <main style={{ width: "100%", maxWidth: "1450px", margin: "0 auto", padding: "32px 28px 70px", boxSizing: "border-box" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 300px", gridTemplateRows: "auto", gap: "28px", alignItems: "start", width: "100%" }}>
-                    <section style={{ gridColumn: "1", gridRow: "1", minWidth: 0, width: "100%" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 300px", gridTemplateRows: "auto", gap: "28px", alignItems: "start", width: "100%", direction: "ltr" }}>
+                    <section style={{ gridColumn: "1", gridRow: "1", minWidth: 0, width: "100%", direction: "rtl" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", gap: "20px", marginBottom: "22px", flexWrap: "wrap" }}>
                             <div>
                                 <div style={{ color: "#777", fontSize: "11px", letterSpacing: "3px", fontWeight: 700, marginBottom: "7px" }}>AVAILABLE VEHICLES</div>
@@ -214,7 +214,7 @@ function Home() {
                         )}
                     </section>
 
-                    <aside style={{ gridColumn: "2", gridRow: "1", alignSelf: "start", width: "100%", boxSizing: "border-box", background: "rgba(15, 15, 15, 0.88)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: "22px", padding: "22px", boxShadow: "0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", direction: "rtl" }}>
+                    <aside style={{ gridColumn: "2", gridRow: "1", direction: "rtl", alignSelf: "start", width: "100%", boxSizing: "border-box", background: "rgba(15, 15, 15, 0.88)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: "22px", padding: "22px", boxShadow: "0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", direction: "rtl" }}>
                         <div style={{ marginBottom: "18px" }}>
                             <button type="button" onClick={() => { window.location.href = "/#sold"; }} style={{ width: "100%", padding: "13px 16px", borderRadius: "12px", border: "1px solid rgba(212,175,55,0.35)", background: "linear-gradient(135deg, rgba(212,175,55,0.15) 0%, rgba(212,175,55,0.05) 100%)", color: "#d4af37", cursor: "pointer", fontSize: "13px", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", letterSpacing: "0.5px", boxShadow: "0 4px 18px rgba(212,175,55,0.12), inset 0 1px 0 rgba(255,255,255,0.06)", transition: "all 0.2s" }}>
                                 <span style={{ fontSize: "16px" }}>🏁</span>
