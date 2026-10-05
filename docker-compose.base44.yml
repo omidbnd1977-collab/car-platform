@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: carplatform
+      POSTGRES_USER: carplatform
+      POSTGRES_PASSWORD: carplatform_dev
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carplatform -d carplatform"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: on-failure
+
+  backend:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./.env.base44-defaults
+      - /run/base44/app.env
+    environment:
+      - PORT=5000
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=carplatform
+      - DB_USER=carplatform
+      - DB_PASSWORD=carplatform_dev
+      - STORAGE_PROVIDER=local
+      - NODE_ENV=development
+      - DB_SSL=false
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-ec", "CI=true npm install && exec node --watch src/server.js"]
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:5000/api/cars').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 25s
+    restart: on-failure
+
+  frontend:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:5173"
+    env_file:
+      - ./.env.base44-defaults
+      - /run/base44/app.env
+    environment:
+      - VITE_API_URL=/api
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: ["sh", "-ec", "CI=true npm install && exec npm run dev -- --host 0.0.0.0"]
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:5173/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    restart: on-failure
+
+volumes:
+  db_data:

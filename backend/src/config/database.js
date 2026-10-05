@@ -21,7 +21,9 @@ if (explicitReject === "false" || explicitReject === "0") {
   rejectUnauthorized = isProd ? true : false;
 }
 
-const sslConfig = rejectUnauthorized === false ? { rejectUnauthorized: false } : { rejectUnauthorized: true };
+// DB_SSL=false → کلاً SSL را غیرفعال می‌کند (برای دیتابیس محلی بدون SSL)
+const sslDisabled = String(process.env.DB_SSL || "").toLowerCase() === "false" || String(process.env.DB_SSL || "") === "0";
+const sslConfig = sslDisabled ? false : (rejectUnauthorized === false ? { rejectUnauthorized: false } : { rejectUnauthorized: true });
 
 if (!isProd && rejectUnauthorized === false) {
   console.log("DB SSL: rejectUnauthorized=false (development)");

@@ -1,0 +1,28 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "JWT_SECRET",
+      "description": "Signing secret for JWT auth tokens. Generate a random string (e.g. openssl rand -hex 32).",
+      "requiredAtBoot": true,
+      "generatedForDevelopment": true
+    },
+    {
+      "name": "SEARCHAPI_KEY",
+      "description": "API key for searchapi.io used by the car image search service. Optional — image search won't work without it.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ADMIN_API_KEY",
+      "description": "Protects write routes (POST/PUT/DELETE) with an x-admin-key header. Optional — when unset, write routes are open.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "KAVENEGAR_API_KEY",
+      "description": "Kavenegar SMS API key for sending notifications. Optional — SMS is disabled without it.",
+      "requiredAtBoot": false
+    }
+  ]
+}
