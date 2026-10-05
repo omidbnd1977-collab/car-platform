@@ -17,15 +17,31 @@ export default function QRPrintSheet() {
         if (isBase) {
             return `${origin}/?dealer=${slug}`;
         }
+        // Use the configured production website if available
+        if (dealerConfig.website) {
+            return dealerConfig.website;
+        }
         return origin;
     }, [origin]);
     const companyName = dealerConfig.name || "QESHM SMART AUTO";
     const phone = dealerConfig.phone || "+989177611324";
     return (
         <div className="qr-print-root" style={{ minHeight: "100vh", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", fontFamily: "Tahoma, Arial, sans-serif" }}>
-            <style>{`@media print { body { background: white !important; } .qr-print-root { background: white !important; padding: 0 !important; } .no-print { display: none !important; } .qr-a4 { box-shadow: none !important; border: 3px solid #d4af37 !important; } }`}</style>
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px", alignItems: "center" }}>
+            <style>{`
+                @media print { body { background: white !important; } .qr-print-root { background: white !important; padding: 0 !important; } .no-print { display: none !important; } .qr-a4 { box-shadow: none !important; border: 3px solid #d4af37 !important; transform: none !important; } }
+                @media (max-width: 850px) {
+                    .qr-a4-wrap { width: 100%; display: flex; justify-content: center; align-items: flex-start; overflow: hidden; }
+                    .qr-a4 {
+                        transform: scale(calc((min(100vw, 500px) - 32px) / 794)) !important;
+                        transform-origin: top center !important;
+                    }
+                    .qr-a4-spacer { height: calc(1123px * calc((min(100vw, 500px) - 32px) / 794)); }
+                }
+            `}</style>
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px", alignItems: "center", width: "100%" }}>
                 <button className="no-print" type="button" onClick={() => window.print()} style={{ padding: "12px 24px", borderRadius: "10px", border: "1px solid #111", background: "#111", color: "#fff", fontWeight: 800, cursor: "pointer" }}>🖨️ پرینت این برگه A4</button>
+                <div className="qr-a4-wrap" style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+                <div className="qr-a4-spacer" style={{ position: "absolute", pointerEvents: "none" }} />
                 <div className="qr-a4" style={{ width: "210mm", minHeight: "297mm", background: "#ffffff", border: "4px solid transparent", backgroundImage: "linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, #d4af37 0%, #a9823f 25%, #f5e6a6 50%, #d4af37 75%, #a9823f 100%)", backgroundOrigin: "border-box", backgroundClip: "padding-box, border-box", borderRadius: "18px", boxShadow: "0 20px 60px rgba(0,0,0,0.15), 0 0 0 8px rgba(212,175,55,0.08)", padding: "18mm", boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", textAlign: "center", position: "relative", overflow: "hidden" }}>
                     <div style={{ width: "100%" }}>
                         <div style={{ width: "72px", height: "4px", background: "linear-gradient(90deg, #d4af37, #a9823f)", borderRadius: "999px", margin: "0 auto 18px" }} />
@@ -43,11 +59,12 @@ export default function QRPrintSheet() {
                     <div style={{ width: "100%" }}>
                         <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap", marginBottom: "16px", fontSize: "12px", color: "#555" }}>
                             <span style={{ padding: "6px 12px", borderRadius: "999px", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.20)" }}>📞 {phone}</span>
-                            <span style={{ padding: "6px 12px", borderRadius: "999px", background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.06)" }}>🌐 {origin.replace(/^https?:\/\//, "")}</span>
+                            <span style={{ padding: "6px 12px", borderRadius: "999px", background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.06)" }}>🌐 {(dealerConfig.website || origin).replace(/^https?:\/\//, "")}</span>
                         </div>
                         <div style={{ height: "4px", background: "linear-gradient(90deg, #d4af37 0%, #a9823f 50%, #d4af37 100%)", borderRadius: "999px", marginBottom: "12px" }} />
                         <div style={{ fontSize: "10px", color: "#999", letterSpacing: "1px" }}>{companyName} • SMART AUTO PLATFORM</div>
                     </div>
+                </div>
                 </div>
             </div>
         </div>

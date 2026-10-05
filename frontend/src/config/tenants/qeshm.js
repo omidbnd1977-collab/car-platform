@@ -2,6 +2,7 @@ export const qeshmTenant = {
     tenant: "qeshm",
     name: "QESHM SMART AUTO",
     shortName: "QESHM SMART AUTO",
+    website: "https://www.smart.auto.ir",
     city: "Qeshm",
     country: "Iran",
     cityFa: "قشم",
